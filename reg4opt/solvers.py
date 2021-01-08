@@ -1,99 +1,87 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+Utility functions.
+"""
 
-import math
+import numpy as np
+from numpy import linalg as la
 
-from numpy. random import default_rng
+from numpy.random import default_rng
 ran = default_rng()
 
-from reg4opt.regression import operator_regression, operator_regression_prs
-from reg4opt.interpolation import interpolator
+from tvopt.solvers import stop
 
-#TODO
-# - make num_data, var, num_iter kwarguments
-# - allow to choose the type of solver (cvxpy or prs), and if there is autotuning (opreg)
+from collections import deque as queue
 
 
-#%% OPERATOR REGRESSION-BASED SOLVERS
 
-def opreg_solver(T, x, zeta, num_data, var, num_iter, **solver_args):
+def nesterov_gradient(problem, step, inertia, x_0=0, num_iter=100, tol=None):
+    r"""
+    """
+    
+    f = problem["f"]
+    x = np.zeros(f.dom.shape)
+    x[...] = x_0
+    x_old = x_0
+    y = x_0
+    
+    
+    for l in range(num_iter):
         
-    for _ in range(num_iter):
+        x_old_old = x_old
+        x_old = x
         
-        # training data
-        x_i = [x] + [x + math.sqrt(var)*ran.standard_normal(x.shape) for _ in range(num_data-1)]
-        y_i = [T.operator(z) for z in x_i]
+        # gradient step
+        x = x - step*f.gradient(y) + inertia*(x - x_old_old)
         
-        # solve OpReg
-        t_i, _ = operator_regression(x_i, y_i, zeta, **solver_args)
-        
-        # apply solution
-        x = t_i[0]
+        if stop(x, x_old, tol): break
+    
+        y = x + inertia*(x - x_old)
     
     return x
 
-def interp_opreg_solver(T, x, zeta, num_data, var, num_iter):
+
+def anderson_acceleration(problem, m, x_0=None, num_iter=100, tol=None):
+    r"""
+    """
     
-    # ------ first step: solve OpReg
-    # training data
-    x_i = [x] + [x + math.sqrt(var)*ran.standard_normal(x.shape) for _ in range(num_data-1)]
-    y_i = [T.operator(z) for z in x_i]
+    T = problem["T"]
     
-    # solve OpReg
-    t_i, _ = operator_regression(x_i, y_i, zeta)
+    # create a queue for the iterates history (rightmost element is newest)
+    if x_0 is None: x_0 = [np.zeros(T.dom.shape)]
+    if not isinstance(x_0, list): x_0 = [x_0]
+    x_old = queue(x_0, maxlen=m)
+
     
-    # apply solution
-    x = t_i[0]
+    # first step
+    x = T.operator(x_old[-1])
+    x_old.append(x)
     
-    # ------ interpolation step        
-    for _ in range(num_iter-1):
+    
+    # remaining steps
+    for l in range(1,num_iter):
         
-        x = interpolator(x, x_i, t_i, zeta)
-    
+        m_l = min(m, l)
+        
+        # compute residuals
+        R = np.hstack([np.reshape(T.operator(x_old[-i])-x_old[-i], (-1,1)) for i in range(1, m_l+1)])
+
+        # compute extrapolation coefficients
+        if m_l == 1:
+            a = [1]
+        else:
+            a = la.solve(R.T.dot(R), np.ones((m_l,1)))
+            a = a / np.dot(np.ones(a.shape).T, a)
+        
+        # compute next iterate
+        x = np.sum([a[i-1]*T.operator(x_old[-i]) for i in range(1, m_l+1)], axis=0)
+        
+        if stop(x, x_old[-1], tol): break
+        x_old.append(x)
+        
+    # return list(x_old)
     return x
 
-    
-    
-#TODO function that allows to choose solver (cvxpy or PRS)
-# def opreg_solver(T, x, zeta=0.5, num_data=5, var_data=1, num_iter=5, solver="c", **solver_params):
-    
-#     solver = solver.strip().lower()
-    
-#     for l in range(num_iter):
-        
-#         # training data
-#         x_i = [x] + [x + math.sqrt(var)*ran.standard_normal((n, 1)) for _ in range(num_data-1)]
-#         y_i = [T.operator(z) for z in x_i]
-        
-#         # solve OpReg
-#         if solver == "cvxpy" or solver == "c":
-            
-#             t_i, _ = operator_regression(x_i, y_i, zeta)
-        
-#         elif solver == "prs" or solver == "p":
-            
-#             t_i, _ = operator_regression_prs(x_i, y_i, **solver_params)
-        
-        
-#         # apply solution
-        
-#     return x
 
 
-
-
-def opreg_solver_prs(T, x, zeta, num_data, var, num_iter, **solver_args):
-        
-    for _ in range(num_iter):
-        
-        # training data
-        x_i = [x] + [x + math.sqrt(var)*ran.standard_normal(x.shape) for _ in range(num_data-1)]
-        y_i = [T.operator(z) for z in x_i]
-        
-        # solve OpReg
-        t_i = operator_regression_prs(x_i, y_i, zeta, **solver_args)
-        
-        # apply solution
-        x = t_i[0]
-    
-    return x

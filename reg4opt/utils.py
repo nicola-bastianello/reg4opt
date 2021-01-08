@@ -15,6 +15,32 @@ ran = default_rng()
 from tvopt import sets
 
 
+#%% DATA GENERATION FOR OPERATOR REGRESSION
+
+def generate_data(T, x, num_data, var):
+
+    x_i = [x] + [x + math.sqrt(var)*ran.standard_normal(x.shape) for _ in range(num_data-1)]
+    
+    return x_i, [T.operator(z) for z in x_i]
+
+def generate_data_fw(T, x, num_data, var):
+    
+    # pick directions and magnitudes
+    d = ran.choice(range(x.size), size=num_data-1, replace=False)
+    m = math.sqrt(var)*ran.standard_normal(num_data-1)
+    
+    # create the points
+    x_i = [x] + [x + m[i]*_standard_basis(d[i], x.size) for i in range(num_data-1)]
+    
+    return x_i, [T.operator(z) for z in x_i]
+
+def generate_data_u(T, x, num_data, a):
+    
+    x_i = [x] + [x + 2*a*ran.random(x.shape)-a for _ in range(num_data-1)]
+    
+    return x_i, [T.operator(z) for z in x_i]
+
+
 #%% LINEAR ALGEBRA
 
 def square_norm(x):
@@ -94,24 +120,12 @@ def norm_1(x):
 
     return np.sum(np.abs(x))
 
-#%% PROJECTIONS
-
-def proj_nonnegative(x):
-    """
-    Projection onto the non-negative orthant.
-
-    Parameters
-    ----------
-    x : array_like
-        The vector to be projected.
-
-    Returns
-    -------
-    ndarray
-        The projection of `x` onto the non-negative orthant.
-    """
+def _standard_basis(i, n):
     
-    return np.maximum(x, np.zeros(x.shape))
+    x = np.zeros((n,1))
+    x[i] = 1
+    
+    return x
 
 
 #%% VARIOUS

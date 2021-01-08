@@ -11,6 +11,65 @@ from tvopt import sets
 from reg4opt import utils
 
 
+#%% INTERPOLATION
+
+def interpolator(x, x_i, t_i, zeta, t0=None):
+    """
+    Operator interpolation.
+
+    Parameters
+    ----------
+    x : array_like
+        The point where the interpolated operator should be evaluated.
+    x_i : list
+        The points of the regression problem.
+    t_i : list
+        The solution of the regression problem.
+    zeta : float
+        The contraction constant.
+    t0 : array_like, optional
+        The initial condition for the projection algorithm, defaults to a 
+        vector of zeros.
+
+    Returns
+    -------
+    ndarray
+        The interpolated operator evaluated at `x`.
+    """
+    
+    d = len(x_i) # num. of data points
+    
+    # ------ check if `x` is in `x_i`
+    for i in range(d):
+        
+        if np.allclose(x, x_i[i]): return t_i[i]
+
+    
+    # ------ otherwise, perform interpolation
+    # 1-dimensional case
+    if np.size(x) == 1:
+        
+        # compute lower and upper bounds of the intersection
+        low, up = -np.inf, np.inf
+        
+        for i in range(d):
+            
+            r = zeta*abs(x - x_i[i]) # radius
+            low, up = max(low, float(t_i[i] - r)), min(up, float(t_i[i] + r))
+                
+        return (up + low) / 2
+        
+    # multi-dimensional case
+    else:
+        # generate the ball sets
+        s = [sets.Ball(t_i[i], zeta*utils.norm(x - x_i[i])) for i in range(d)]
+        
+        # choose the initial condition
+        if t0 is None: t0 = ran.standard_normal(np.shape(x))
+        
+        return alternating_projections(s, t0)
+
+
 #%% PROJECTION METHODS
     
 # ------ FEASIBILITY
@@ -189,62 +248,3 @@ def _haugazeau_operator(x, y, z):
         return y + (c/d)*(a*(x - y) + b*(z - y))
     else:
         return None
-
-
-#%% INTERPOLATION
-
-def interpolator(x, x_i, t_i, zeta, t0=None):
-    """
-    Operator interpolation.
-
-    Parameters
-    ----------
-    x : array_like
-        The point where the interpolated operator should be evaluated.
-    x_i : list
-        The points of the regression problem.
-    t_i : list
-        The solution of the regression problem.
-    zeta : float
-        The contraction constant.
-    t0 : array_like, optional
-        The initial condition for the projection algorithm, defaults to a 
-        vector of zeros.
-
-    Returns
-    -------
-    ndarray
-        The interpolated operator evaluated at `x`.
-    """
-    
-    d = len(x_i) # num. of data points
-    
-    # ------ check if `x` is in `x_i`
-    for i in range(d):
-        
-        if np.allclose(x, x_i[i]): return t_i[i]
-
-    
-    # ------ otherwise, perform interpolation
-    # 1-dimensional case
-    if np.size(x) == 1:
-        
-        # compute lower and upper bounds of the intersection
-        low, up = -np.inf, np.inf
-        
-        for i in range(d):
-            
-            r = zeta*abs(x - x_i[i]) # radius
-            low, up = max(low, float(t_i[i] - r)), min(up, float(t_i[i] + r))
-                
-        return (up + low) / 2
-        
-    # multi-dimensional case
-    else:
-        # generate the ball sets
-        s = [sets.Ball(t_i[i], zeta*utils.norm(x - x_i[i])) for i in range(d)]
-        
-        # choose the initial condition
-        if t0 is None: t0 = ran.standard_normal(np.shape(x))
-        
-        return alternating_projections(s, t0)
