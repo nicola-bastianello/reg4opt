@@ -193,15 +193,15 @@ def backtracking_fista(problem, b, x_0=0, num_iter=100, tol=None):
         
         # backtracking line search
         a = 1
-        stop = False
-        while not stop:
+        s = False
+        while not s:
             
             p_l = g.proximal(y - a*f.gradient(y), a)
             
             if f.function(p_l) <= \
                f.function(y) + (p_l - y).T.dot(f.gradient(y)) \
                + (1/(2*a))*utils.square_norm(p_l - y):
-                stop = True
+                s = True
             else:
                 a = b*a
         

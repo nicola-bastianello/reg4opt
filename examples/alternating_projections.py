@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""
+Test the alternating projection method (MAP) for finding a point in the
+intersection of ball sets.
+"""
+
 import numpy as np
 from numpy import linalg as la
 
