@@ -5,6 +5,7 @@
 Solvers.
 """
 
+import math
 import numpy as np
 from numpy import linalg as la
 
@@ -92,9 +93,80 @@ def nesterov_gradient(problem, step, inertia, x_0=0, num_iter=100, tol=None):
 
 #%% ACCELERATION SCHEMES FOR OPERATORS
 
-# def fista:
+def fista(problem, step, x_0=0, num_iter=100, tol=None):
+    r"""
+    Fast iterative shrinkage.thresholding algorithm (FISTA).
+    
+    The function implements FISTA for solving the composite problem
+    :math:`\min_x f(x) + g(x)`, with :math:`f` smooth. The algorithm is
+    defined as follows, for :math:`\ell \in \mathbb{N}`:
+    
+    .. math:: \begin{align}
+                  x^{\ell+1} &= \operatorname{prox}_{\alpha g}(y^\ell - \alpha \nabla f(y^\ell)) \\
+                  t^{\ell+1} &= \frac{1 + \sqrt{4 (t^\ell)^2 + 1}}{2} \\
+                  y^{\ell+1} &= x^{\ell+1} + \frac{t^\ell - 1}{t^{\ell+1}} (x^{\ell+1} - x^\ell)
+              \end{align}
+    
+    where :math:`\alpha` is an appropriate step-size, and :math:`y^1 = x^0`,
+    :math:`t^1 = 1`. See [#]_ for details and convergence.
 
+    Parameters
+    ----------
+    problem : dict
+        A dictionary containing the problem data, in particular the cost
+        functions "f" and "g".
+    step : float
+        The step-size for the method.
+    x_0 : array_like, optional
+        The initial condition. This can be either an ndarray of suitable size,
+        or a scalar. If it is a scalar then the same initial value is used for
+        all components of :math:`x`.
+    num_iter : int, optional
+        The number of iterations to be performed.
+    tol : float, optional
+        If given, this argument specifies the tolerance :math:`t` in the 
+        stopping condition :math:`\| x^{\ell+1} - x^\ell \| \leq t`.
 
+    Returns
+    -------
+    x : ndarray
+        The (approximate) solution.
+    
+    References
+    ----------
+    .. [#] A. Beck and M. Teboulle, "A Fast Iterative Shrinkage-Thresholding 
+           Algorithm for Linear Inverse Problems," SIAM Journal on Imaging 
+           Sciences, vol. 2, no. 1, pp. 183–202, Jan. 2009.
+    """
+    
+    # unpack the problem
+    f, g = problem["f"], problem["g"]
+    
+    # initialization
+    x = np.zeros(f.dom.shape)
+    x[...] = x_0
+    
+    y = x_0
+    t = 1 # for inertial coefficient
+    
+    
+    for l in range(num_iter):
+        
+        # store past iterate
+        x_old = x
+        
+        # proximal gradient step
+        x = g.proximal(y - step*f.gradient(y), step)
+        
+        if stop(x, x_old, tol): break
+    
+        # inertial coefficient
+        t_old = t
+        t = (1 + math.sqrt(t**2 + 1)) / 2
+        # inertial step
+        y = x + ((t_old-1)/t)*(x - x_old)
+    
+    return x
 
 def anderson_acceleration(problem, m, x_0=None, num_iter=100, tol=None):
     r"""
@@ -192,6 +264,3 @@ def anderson_acceleration(problem, m, x_0=None, num_iter=100, tol=None):
         x_old.append(x)
         
     return x
-
-
-
