@@ -71,7 +71,7 @@ def generate_data(T, x, num_data, method="normal", **kwargs):
     else:
         return generate_data_n(T, x, num_data, **kwargs)
 
-def generate_data_n(T, x, num_data, var):
+def generate_data_n(T, x, num_data, var=1):
     """
     Data generation using perturbation that are normally distributed with
     variance `var`. See `generate_data` for details.
@@ -81,7 +81,7 @@ def generate_data_n(T, x, num_data, var):
     
     return x_i, [T.operator(z) for z in x_i]
 
-def generate_data_fw(T, x, num_data, var):
+def generate_data_fw(T, x, num_data, var=1):
     """
     Data generation using perturbation chosen according to the fireworks
     method. See `generate_data` for details.
@@ -96,7 +96,7 @@ def generate_data_fw(T, x, num_data, var):
     
     return x_i, [T.operator(z) for z in x_i]
 
-def generate_data_u(T, x, num_data, a):
+def generate_data_u(T, x, num_data, a=1):
     """
     Data generation using perturbation that are uniformly distributed with
     range -`a` to `a`. See `generate_data` for details.
