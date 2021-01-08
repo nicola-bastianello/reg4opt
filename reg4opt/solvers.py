@@ -19,8 +19,6 @@ from reg4opt import utils
 from tvopt.solvers import stop
 
 
-
-
 #%% SOLVERS FOR SMOOTH PROBLEMS
 
 def nesterov_gradient(problem, step, inertia, x_0=0, num_iter=100, tol=None):
