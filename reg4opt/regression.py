@@ -302,8 +302,6 @@ def qcqp(p_0, q_0, P, r,
         The (approximate) dual solution.
     """
     
-    # p_0 is the diagonal element of P_0
-    
     n = q_0.size//2 # domain dimension
     
     # compute P^-1(l) and P^-1(l) q(l)
@@ -546,8 +544,6 @@ def qcqp_autotuning(p_0_1, p_0_2, q_0, P, q,
     l : float
         The (approximate) dual solution.
     """
-    
-    # p_0 is the diagonal element of P_0
     
     n = q_0.size//2 # domain dimension
     
