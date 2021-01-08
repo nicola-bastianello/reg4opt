@@ -12,9 +12,13 @@ from numpy import linalg as la
 from numpy.random import default_rng
 ran = default_rng()
 
+from collections import deque as queue
+
+from reg4opt import utils
+
 from tvopt.solvers import stop
 
-from collections import deque as queue
+
 
 
 #%% SOLVERS FOR SMOOTH PROBLEMS
@@ -157,6 +161,54 @@ def fista(problem, step, x_0=0, num_iter=100, tol=None):
         
         # proximal gradient step
         x = g.proximal(y - step*f.gradient(y), step)
+        
+        if stop(x, x_old, tol): break
+    
+        # inertial coefficient
+        t_old = t
+        t = (1 + math.sqrt(t**2 + 1)) / 2
+        # inertial step
+        y = x + ((t_old-1)/t)*(x - x_old)
+    
+    return x
+
+def backtracking_fista(problem, b, x_0=0, num_iter=100, tol=None):
+    r"""
+
+    """
+    
+    # unpack the problem
+    f, g = problem["f"], problem["g"]
+    
+    # initialization
+    x = np.zeros(f.dom.shape)
+    x[...] = x_0
+    
+    y = x_0
+    t = 1 # for inertial coefficient
+    
+    
+    for l in range(num_iter):
+        
+        # store past iterate
+        x_old = x
+        
+        # backtracking line search
+        a = 1
+        stop = False
+        while not stop:
+            
+            p_l = g.proximal(y - a*f.gradient(y), a)
+            
+            if f.function(p_l) <= \
+               f.function(y) + (p_l - y).T.dot(f.gradient(y)) \
+               + (1/(2*a))*utils.square_norm(p_l - y):
+                stop = True
+            else:
+                a = b*a
+        
+        # proximal gradient step
+        x = p_l
         
         if stop(x, x_old, tol): break
     
