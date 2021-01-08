@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
 """
-Utility functions.
+Solvers.
 """
 
 import numpy as np
@@ -15,12 +16,57 @@ from tvopt.solvers import stop
 from collections import deque as queue
 
 
+#%% SOLVERS FOR SMOOTH PROBLEMS
 
 def nesterov_gradient(problem, step, inertia, x_0=0, num_iter=100, tol=None):
     r"""
+    Nesterov gradient method.
+    
+    This function implements the Nesterov accelerated gradient described by the
+    following equations, for :math:`\ell \in \mathbb{N}`:
+    
+    .. math:: \begin{align}
+                  x^{\ell+1} &= x^\ell - \alpha \nabla f(y^\ell) + \beta (x^\ell - x^{\ell-1}) \\
+                  y^{\ell+1} &= x^{\ell+1} + \beta (x^{\ell+1} - x^{\ell})
+              \end{align}
+    
+    where :math:`\alpha` and :math:`\beta` are the step-size and inertial
+    coefficient, respectively, and where :math:`y^0 = x^0`.
+
+    Parameters
+    ----------
+    problem : dict
+        A dictionary containing the problem data, in particular the cost
+        function "f".
+    step : float
+        The step-size for the method.
+    inertia : float
+        The inertial coefficient for the method.
+    x_0 : array_like, optional
+        The initial condition. This can be either an ndarray of suitable size,
+        or a scalar. If it is a scalar then the same initial value is used for
+        all components of :math:`x`.
+    num_iter : int, optional
+        The number of iterations to be performed.
+    tol : float, optional
+        If given, this argument specifies the tolerance :math:`t` in the 
+        stopping condition :math:`\| x^{\ell+1} - x^\ell \| \leq t`.
+
+    Returns
+    -------
+    x : ndarray
+        The (approximate) solution.
+    
+    References
+    ----------
+    .. [#] Y. Nesterov, Lectures on Convex Optimization, vol. 137. Cham: 
+           Springer International Publishing, 2018.
     """
     
+    # unpack the problem
     f = problem["f"]
+    
+    # initialization
     x = np.zeros(f.dom.shape)
     x[...] = x_0
     x_old = x_0
@@ -29,6 +75,7 @@ def nesterov_gradient(problem, step, inertia, x_0=0, num_iter=100, tol=None):
     
     for l in range(num_iter):
         
+        # store past iterates (the two previous ones)
         x_old_old = x_old
         x_old = x
         
@@ -37,16 +84,80 @@ def nesterov_gradient(problem, step, inertia, x_0=0, num_iter=100, tol=None):
         
         if stop(x, x_old, tol): break
     
+        # inertial step
         y = x + inertia*(x - x_old)
     
     return x
 
 
+#%% ACCELERATION SCHEMES FOR OPERATORS
+
+# def fista:
+
+
+
 def anderson_acceleration(problem, m, x_0=None, num_iter=100, tol=None):
     r"""
+    Anderson acceleration method.
+    
+    This function implements the Anderson acceleration (AA) method defined as 
+    follows. Let :math:`\mathcal{T} : \mathbb{R}^n \to \mathbb{R}^n` be the 
+    operator that we want to accelerate, and let `m` be the number of past
+    iterates to be used in accelerating. The AA at each iteration 
+    :math:`\ell \in \mathbb{N}` chooses the coefficients 
+    :math:`\alpha^\ell = [\alpha_1^\ell, \ldots, \alpha_m^\ell]^\top` by solving:
+        
+     .. math:: \alpha^\ell = \operatorname{arg\,min}_{\alpha^\top \pmb{1} = 1} \| R^\ell \alpha^\ell \|
+     
+     where
+     
+     .. math:: R^\ell = \left[ (\mathcal{T}-\mathcal{I}) x^{\ell}, 
+                               (\mathcal{T}-\mathcal{I}) x^{\ell-1}, \ldots, 
+                               (\mathcal{T}-\mathcal{I}) x^{\ell-m+1} \right].
+    
+    After selecting the coefficients, the next iterate of the algorithm is 
+    characterized by:
+        
+    .. math:: x^{\ell+1} = \sum_{i = 1}^m \alpha_i \mathcal{T} x^{\ell-i+1}.
+    
+    See [#]_ and references therein for more details.    
+
+    Parameters
+    ----------
+    problem : dict
+        A dictionary containing the problem data, in particular the operator
+        with keyword "T".
+    m : int
+        The number of past iterates to be used in the acceleration scheme.
+    x_0 : array_like, optional
+        The initial condition. This can be either an ndarray of suitable size,
+        or a scalar. If it is a scalar then the same initial value is used for
+        all components of :math:`x`.
+    num_iter : int, optional
+        The number of iterations to be performed.
+    tol : float, optional
+        If given, this argument specifies the tolerance :math:`t` in the 
+        stopping condition :math:`\| x^{\ell+1} - x^\ell \| \leq t`.
+
+    Returns
+    -------
+    x : ndarray
+        The (approximate) solution.
+    
+    References
+    ----------
+    .. [#] V. Mai and M. Johansson, "Anderson Acceleration of Proximal Gradient 
+           Methods," in Proceedings of the 37th International Conference on 
+           Machine Learning, Virtual, Jul. 2020, vol. 119, pp. 6620–6629.
+    
+    Notes
+    -----
+    The function uses a double ended queue, as implemented by 
+    `collections.deque`, to store the `m` last iterates, so that the memory
+    usage is as efficient as possible.
     """
     
-    T = problem["T"]
+    T = problem["T"] # unpack the operator
     
     # create a queue for the iterates history (rightmost element is newest)
     if x_0 is None: x_0 = [np.zeros(T.dom.shape)]
@@ -80,7 +191,6 @@ def anderson_acceleration(problem, m, x_0=None, num_iter=100, tol=None):
         if stop(x, x_old[-1], tol): break
         x_old.append(x)
         
-    # return list(x_old)
     return x
 
 

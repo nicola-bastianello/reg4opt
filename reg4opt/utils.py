@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
 """
 Utility functions.
 """
@@ -17,13 +18,74 @@ from tvopt import sets
 
 #%% DATA GENERATION FOR OPERATOR REGRESSION
 
-def generate_data(T, x, num_data, var):
+def generate_data(T, x, num_data, method="normal", **kwargs):
+    """
+    Generate the training data for an operator regression problem.
+    
+    The function encapsulates different method of generating the training data
+    for an operator regression problem. The choices are
+    
+    * normal: the data are chosen as :math:`x + d_i`, where
+      :math:`d_i` are random vectors with normal distribution;
+    * fireworks: the data are chosen as :math:`x + d_i`, where we have
+      :math:`d_i = a e_j`, with :math:`a` a r.v. with normal distribution and
+      :math:`e_j` a randomly selected vector of the standard basis;
+    * uniform: the data are chosen as :math:`x + d_i`, where
+      :math:`d_i` are random vectors with uniform distribution.
+
+    Parameters
+    ----------
+    T : operators.Operator
+        The operator source of the training data.
+    x : ndarray
+        The center of the training data, that is, all other training points are
+        chosen as perturbations of `x`.
+    num_data : int
+        The number of training points, including `x`, which means that 
+        `num_data`-1 points are randomly selected.
+    method : str, optional
+        The method to choose the training points, defaults to "normal".
+    **kwargs : tuple
+        The arguments of `method`.
+
+    Returns
+    -------
+    list
+        The points :math:`x_i` selected by the method.
+    list
+        The operator `T` evaluated in the chosen points.
+    
+    See Also
+    --------
+    generate_data_n : Data generation with normal distribution.
+    generate_data_fw : Data generation with fireworks method.
+    generate_data_u : Data generation with unform distribution.
+    """
+    
+    if method == "normal" or method == "n":
+        return generate_data_n(T, x, num_data, **kwargs)
+    elif method == "fireworks" or method == "fw" or method == "f":
+        return generate_data_fw(T, x, num_data, **kwargs)
+    elif method == "uniform" or method == "u":
+        return generate_data_fw(T, x, num_data, **kwargs)
+    else:
+        return generate_data_n(T, x, num_data, **kwargs)
+
+def generate_data_n(T, x, num_data, var):
+    """
+    Data generation using perturbation that are normally distributed with
+    variance `var`. See `generate_data` for details.
+    """
 
     x_i = [x] + [x + math.sqrt(var)*ran.standard_normal(x.shape) for _ in range(num_data-1)]
     
     return x_i, [T.operator(z) for z in x_i]
 
 def generate_data_fw(T, x, num_data, var):
+    """
+    Data generation using perturbation chosen according to the fireworks
+    method. See `generate_data` for details.
+    """
     
     # pick directions and magnitudes
     d = ran.choice(range(x.size), size=num_data-1, replace=False)
@@ -35,6 +97,10 @@ def generate_data_fw(T, x, num_data, var):
     return x_i, [T.operator(z) for z in x_i]
 
 def generate_data_u(T, x, num_data, a):
+    """
+    Data generation using perturbation that are uniformly distributed with
+    range -`a` to `a`. See `generate_data` for details.
+    """
     
     x_i = [x] + [x + 2*a*ran.random(x.shape)-a for _ in range(num_data-1)]
     
@@ -121,6 +187,9 @@ def norm_1(x):
     return np.sum(np.abs(x))
 
 def _standard_basis(i, n):
+    r"""
+    Return the `i`-th vector of the standard basis in :math:`\mathbb{R}^n`.
+    """
     
     x = np.zeros((n,1))
     x[i] = 1
@@ -166,13 +235,36 @@ def print_progress(i, num_iter, bar_length=80, decimals=2):
     sys.stdout.flush()
 
 def random_intersecting_balls(n, d, max_radius=100):
-    # this function generates d random balls in an n-dim space
-    # the radius is randomly picked from (0, max_radius)
-    # the center is randomly chosen taking a point in the unit sphere
-    # a list of sets.Ball objects is returned
+    r"""
+    Randomly generate a set of intersecting ball sets.
     
-    # the balls are guaranteed to intersect in the origin at least
-    # https://stackoverflow.com/a/54544972
+    This utility function generates a set of `d` balls in :math:`\mathbb{R}^n`
+    for the purpose of testing projection methods. The centers of the balls are
+    uniformly chosen points in the unit sphere, and the radius is randomly 
+    picked between 0 (excluded) and `max_radius`.
+    
+    As a consequence, the origin of :math:`\mathbb{R}^n` is (one of the) points
+    in the intersection of the balls.
+
+    Parameters
+    ----------
+    n : int
+        The dimension of the space.
+    d : int
+        The number of balls to be generated.
+    max_radius : float, optional
+        The maximum radius of the generated balls. The default is 100.
+
+    Returns
+    -------
+    s : list
+        A list of tvopt.sets.Ball objects representing the sets.
+
+    Notes
+    -----
+    Adapted from `here 
+    <https://stackoverflow.com/a/54544972>`_.
+    """
     
     s = []
     
