@@ -298,7 +298,8 @@ def anderson_acceleration(problem, m, x_0=None, num_iter=100, tol=None):
         m_l = min(m, l)
         
         # compute residuals
-        R = np.hstack([np.reshape(T.operator(x_old[-i])-x_old[-i], (-1,1)) for i in range(1, m_l+1)])
+        # R = np.hstack([np.reshape(T.operator(x_old[-i])-x_old[-i], (-1,1)) for i in range(1, m_l+1)])
+        R = np.hstack([T.operator(x_old[-i])-x_old[-i] for i in range(1, m_l+1)])
 
         # compute extrapolation coefficients
         if m_l == 1:
