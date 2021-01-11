@@ -28,7 +28,7 @@ from reg4opt.solvers import fista, anderson_acceleration
 #%% SET-UP
 
 n = 10 # domain dimension
-t_s, t_max = 0.1, 1 # sampling time and time horizon
+t_s, t_max = 0.1, 10 # sampling time and time horizon
 
 
 # ------ signal
@@ -91,7 +91,7 @@ rho = 1
 tol = 1.5*1e-4
 
 # parameter for Anderson acceleration (num. of past iterates in extrapolation)
-m = num_iter
+m = num_data
 
 
 # initial condition
@@ -153,13 +153,21 @@ t = 0
 
 for k in range(f.time.num_samples):
     
-    T_k = P.compose(T.sample(k*t_s)) # sampled operator
+    T_k = T.sample(k*t_s) # sampled operator
+        
+    for _ in range(num_iter):
+        
+        # Anderson acceleration on gradient
+        y = anderson_acceleration({"T":T_k}, m, x_0=x_old, num_iter=num_iter)
+        
+        # proximal step
+        y = g.proximal(y, step)
+        x_old.append(y)
     
-    # apply gradient step
-    x[...,k+1] = anderson_acceleration({"T":T_k}, m, x_0=x_old, num_iter=num_iter)
-
+    x[...,k+1] = y
+    
     # update list of past iterates
-    x_old = [x[...,k+1-i] for i in range(min(k+1, m))].reverse()
+    x_old = [x[...,k+1-i] for i in range(min(k+1, m))][::-1]
 
     print_progress(k+1, f.time.num_samples)
 
@@ -283,8 +291,8 @@ fontsize = 18
 markers = ['o', 's', 'v', '^', '*', 'D', 'H', '<', '>', 'p']
 
 
+# ------ tracking error over time
 time = np.arange(0, f.time.t_max, f.time.t_s)
-
 
 plt.figure()
 
@@ -301,5 +309,27 @@ plt.legend(fontsize=12)
 
 plt.xlabel("Time [s]", fontsize=fontsize)
 plt.ylabel("Tracking error", fontsize=fontsize)
+
+plt.show()
+
+
+# ------ cumulative tracking error per gradient calls
+time = np.arange(1, f.time.num_samples+1)
+
+plt.figure()
+
+plt.semilogy(num_iter*time, np.cumsum(err_pg)/time, label="Proximal gradient", marker=markers[0], markevery=50)
+plt.semilogy(num_iter*time, np.cumsum(err_f)/time, label="FISTA", marker=markers[1], markevery=50)
+plt.semilogy((num_data+num_iter-1)*time, np.cumsum(err_aa)/time, label="Anderson", marker=markers[2], markevery=50)
+plt.semilogy(num_data*num_iter*time, np.cumsum(err_prs)/time, label="OpReg (PRS)", marker=markers[3], markevery=50)
+plt.semilogy(num_data*num_iter*time, np.cumsum(err_cp)/time, label="OpReg (CVXPY)", marker=markers[4], markevery=50)
+plt.semilogy((num_data+num_iter-1)*time, np.cumsum(err_in)/time, label="OpReg (PRS, interpolation)", marker=markers[5], markevery=50)
+
+
+plt.grid()
+plt.legend(fontsize=12)
+
+plt.xlabel("Gradient calls", fontsize=fontsize)
+plt.ylabel("Cumulative tracking error", fontsize=fontsize)
 
 plt.show()
