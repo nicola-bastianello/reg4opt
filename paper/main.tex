@@ -17,6 +17,44 @@
 % Attempt to make hyperref and algorithmic work together better:
 \newcommand{\theHalgorithm}{\arabic{algorithm}}
 
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{bm,fixmath}
+
+
+%-------------------- COMMANDS
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator{\prox}{prox}
+\DeclareMathOperator{\fix}{fix}
+
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+
+% new math commands
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\R}{\mathbb{R}}
+
+\newcommand{\bv}{\mathbold{b}}
+\newcommand{\e}{\mathbold{e}}
+\newcommand{\p}{\mathbold{p}}
+\newcommand{\q}{\mathbold{q}}
+\newcommand{\tv}{\mathbold{t}}
+\newcommand{\x}{\mathbold{x}}
+\newcommand{\y}{\mathbold{y}}
+\newcommand{\vv}{\mathbold{v}}
+\newcommand{\z}{\mathbold{z}}
+\newcommand{\xx}{\pmb{\xi}}
+
+\newcommand{\Am}{\mathbold{A}}
+\renewcommand{\Im}{\mathbold{I}}
+\newcommand{\Pm}{\mathbold{P}}
+
+\newcommand{\I}{\mathcal{I}}
+\newcommand{\T}{\mathcal{T}}
+
+\newcommand{\Ts}{T_\mathrm{s}}
+
+\newcommand{\nicola}[1]{{\color{blue}#1}}
+
+
 % Use the following line for the initial blind version submitted for review:
 \usepackage{icml2021}
 
@@ -92,19 +130,117 @@ In this paper we propose a learning-based acceleration scheme for online optimiz
 %------------------------------------------------------------------------------
 \section{Operator Regression}\label{sec:opreg}
 
-.... operator regression, application to accelerate optimization algorithm, interpolation version, and autotuning, PRS solver (in appendix) ....
+%------------------------------------------------
+\subsection{Problem formulation}
+Consider the following \emph{convex, time-varying} optimization problem
+\begin{equation}\label{eq:continuous-time-problem}
+	\x^*(t) \in \argmin f(\x; t) + g(\x; t)
+\end{equation}
+where $f : \R^n \times \R_+ \to \R$ and $g : \R^n \times \R_+ \to \R \cup \{ +\infty \}$ are closed, convex and proper functions, optionally with $g \equiv 0$. In particular, we are interested in solving the following sequence of static problems derived from sampling~\eqref{eq:continuous-time-problem} at the times $\{ t_k \}_{k \in \N}$, $t_{k+1} - t_k = \Ts$:
+\begin{equation}\label{eq:base-problem}
+	\x^*(t) \in \argmin f(\x; t_k) + g(\x; t_k).
+\end{equation}
+
+Problem~\eqref{eq:base-problem} is convex but not strongly so, which means that the performance of online algorithms applied to it is worse than the performance attainable for strongly convex problems. As an example, consider the case $g \equiv 0$, and apply an online gradient descent: if the problem is convex the (static) regret is $O(\sqrt{T})$, with $T$ the number of sampling times, while if the problem is strongly convex the regret is $O(\log(T))$, section~3.1 in \cite{hazan_introduction_2016}. \nicola{Instead of citing Hazan, we should derive a result in an appendix, for example for the fixed point residual}
+
+As we can see from the results just mentioned, in general in online optimization it is not possible to achieve zero regret, due to the dynamic nature of the problem. However, for strongly convex problems smaller regrets can be achieved.
+
+The goal then is to design learning techniques that allow to achieve strongly convex-like performance while tracking a solution trajectory of the problem~\eqref{eq:base-problem} with good accuracy.
+
+
+%------------------------------------------------
+\subsection{Operator regression}
+First of all, we define the observations
+$$
+	\y_i = \T_f \x_i + \e_i, \quad i \in [D]
+$$
+of the operator we want to regularize. Now, using Fact~2.2 in \cite{ryu_operator_2020} we know that an operator $\T$ is $\zeta$-contractive interpolable if and only if it satisfies
+$$
+	\norm{\T \x_i - \T \x_j}^2 \leq \zeta^2 \norm{\x_i - \x_j}^2, \quad \forall i,j \in [D], \ i \neq j.
+$$
+Therefore, we can define the following constrained regression problem:
+\begin{equation}\label{eq:operator-regression}
+\begin{split}
+	\hat{\tv}_i &= \argmin_{\tv_i \in \R^n} \frac{1}{2} \sum_{i \in [D]} \norm{\tv_i - \y_i}^2 \\
+	&\text{s.t.} \ \norm{\tv_i - \tv_j}^2 \leq \zeta^2 \norm{\x_i - \x_j}^2 \ \forall i,j \in [D], i \neq j
+\end{split}
+\end{equation}
+where again the cost function is a least square terms on the observations and the constraints enforce contractiveness.
+
+
+\paragraph{Auto-tuning contraction}
+We can modify~\eqref{eq:operator-regression} by including $w = \zeta^2$ as an unknown of the regression problem, which becomes
+\begin{equation}
+\begin{split}
+	\hat{\tv}_i &= \argmin_{\tv_i \in \R^n} \frac{1}{2} \sum_{i \in [D]} \norm{\tv_i - \y_i}^2 + \frac{c}{2} w^2 \\
+	&\text{s.t.} \ \norm{\tv_i - \tv_j}^2 - w \norm{\x_i - \x_j}^2 \leq 0 \ \forall i,j \in [D], i \neq j
+\end{split}
+\end{equation}
+this way the contraction constant does not need to be specified, and is \emph{auto-tuned} by the regression.
+
+
+\paragraph{PRS-based solver}
+.... brief description of basic characteristics, reference to the appendix ....
 
 
 %------------------------------------------------------------------------------
 \section{OpReg-Boost}\label{sec:online-opreg}
 
-.... application of OpReg to online optimization ....
+Let now $\T_k : \R^n \to \R^n$ be a solver for the convex problem observed at time $t_k$, and assume that the operator has a term $\T_{f,k}$ depending exclusively on $f$ (\emph{e.g.} we have $\T_k = \T_k' \circ \T_{f,k}$). Since the sampled problem is convex, the solver $\T_k$ is non-expansive (actually, averaged, to guarantee convergence).
+
+The idea then is to try and learn an approximation of $\T_k$ that is \emph{contractive} rather than non-expansive.
+
+Again, w.l.o.g. we are only interested in learning the term $\T_{f,k}$ that depends on $f$. The algorithm can be described as follows: at each time $t_k$ do:
+\begin{enumerate}
+	\item sample a new problem, that is, observe $f(\x; t_k)$ and $g(\x; t_k)$;
+
+	\item approximate the term $\T_{f,k}$ of the solver with a contractive one, and
+	
+	\item apply the resulting solver. For example if $\T_k = \T_k' \circ \T_{f,k}$, then we apply $\T_k = \T_k' \circ \hat{\T}_{f,k}$ where $\hat{\T}_{f,k}$ is the learned operator.
+\end{enumerate}
+The learning step is performed using the (novel) constrained operator regression OpReg described in the following.
+
+In particular we have the following algorithm \nicola{make this pseudo code}
+For $\ell \in 0, 1, \ldots, M$ (for some $M \in \N$):
+\begin{itemize}
+	\item let $\x_k^\ell$ be the current approximate solution, we choose $D-1$ points around it, \emph{e.g.}
+	$$
+		\x_i = \x_k^\ell + \p_i, \ i = 2, \ldots, D, \ \p_i \sim \mathcal{N}(0, \sigma^2 \Im_n)
+	$$
+	and set $\x_1 = \x_k^\ell$;
+	
+	\item we compute the data $\tv_i = \T_{f,k} \x_i$, $i = 1, \ldots, D$, for example $\tv_i = \x_i - \alpha \nabla f(\x_i; t_k)$;
+	
+	\item we solve the OpReg, and use the approximate operator at $\x_k^\ell$, that is $\tv_1$, in the chosen solver $\T_k$:
+	$$
+		\x_k^{\ell+1} = \prox_{\alpha g}(\tv_1)
+	$$
+	where $\alpha$ is a step-size.
+\end{itemize}
+
+
+%------------------------------------------------
+\subsection{Interpolated version}
+
+
+
 
 
 %------------------------------------------------------------------------------
 \section{Numerical Results}\label{sec:numerical}
 
-.... simulation setup, reference to code (for now in supplementary materials), simulations ....
+
+%------------------------------------------------
+\subsection{Simulations set-up}
+We consider the following time-varying problem:
+\begin{equation}\label{eq:tv-problem}
+	\x^*(t_k) = \argmin_{\x \in \R^n} \frac{1}{2} \norm{\Am \x - \bv(t_k)}^2 + w \norm{\x}_1
+\end{equation}
+with $n = 10$, $\Am$ matrix with maximum and minimum (non-zero) eigenvalues $\sqrt{L} = 10^8$, $\sqrt{\mu} = 1$, and with rank $5$; $\y(t_k)$ has sinusoidal components with $3$ zero components. Due to $\Am$ being rank deficient, the cost $f$ is convex but not strongly so.
+
+
+%------------------------------------------------
+\subsection{Results}
 
 
 
@@ -175,7 +311,7 @@ In this paper we propose a learning-based acceleration scheme for online optimiz
 
 
 
-\bibliography{main}
+\bibliography{references}
 \bibliographystyle{icml2021}
 
 
@@ -184,7 +320,75 @@ In this paper we propose a learning-based acceleration scheme for online optimiz
 
 %------------------------------------------------------------------------------
 \section{PRS-Based QCQP solver}
+In this section we present a solver for OpReg which can be efficiently parallelized, inspired by the approach in \cite{simonetto_smooth_2021}.
 
+The idea is as follows: each pair of data points $i, j \in [D]$, $i \neq j$, gives rise to one constraint, for a total of $D(D-1)/2$ constraints. We define the following set of pairs
+$$
+	\mathcal{V} = \left\{ e = (i,j) \ | \ i, j \in [D], \ i < j \right\}
+$$
+which are ordered (that is, for example we take $(1,2)$ and not $(2,1)$, to avoid counting constraints twice). Clearly to each pair $e = (i,j)$ corresponds the constraint $\norm{\tv_i - \tv_j}^2 \leq \zeta^2 \norm{\x_i - \x_j}^2$.
+
+Let now $\tv_{i,e}$ and $\tv_{j,e}$ be copies of $\tv_i$ and $\tv_j$ associated to the $e$-th constraint; then we can equivalently reformulate the OpReg~\eqref{eq:operator-regression} as
+\begin{subequations}\label{eq:equivalent-problem}
+\begin{align}
+	&\min_{\tv_{i,e}, \tv_{j,e}} \frac{1}{2 (D-1)} \sum_{e \in \mathcal{V}} \norm{\begin{bmatrix} \tv_{i,e} \\ \tv_{j,e} \end{bmatrix} - \begin{bmatrix} \y_i \\ \y_j \end{bmatrix}}^2 \\
+	&\text{s.t.} \ \norm{\tv_{i,e} - \tv_{j,e}}^2 \leq \zeta^2 \norm{\x_i - \x_j}^2 \label{eq:interpolation-constraints} \\
+	&\qquad \tv_{i,e} = \tv_{i,e'} \ \forall e, e' | i \sim e, e'. \label{eq:consensus-constraints}
+\end{align}
+\end{subequations}
+Clearly~\eqref{eq:equivalent-problem} is a strongly convex problem with convex constraints defined in the variables $\tv_{i,e}$.
+
+%----------------------------------------
+\subsection{PRS solver}
+Let $\xx$ be the vector stacking all the $\tv_{i,e}$, then the problem is equivalent to
+\begin{align*}
+	\min_{\xx} f(\xx) + g(\xx)
+\end{align*}
+where
+$$
+	f(\xx) = \frac{1}{2(D-1)} \norm{\xx - \y}^2 + f_1(\xx)
+$$
+with $f_1$ the indicator function imposing~\eqref{eq:interpolation-constraints} and $g$ the indicator function imposing the ``consensus'' constraints~\eqref{eq:consensus-constraints}. The problem can then be solved using the Peaceman-Rachford splitting (PRS) characterized by the following updates $\ell \in \mathbb{N}$:
+\begin{subequations}
+\begin{align}
+	&\xx^\ell = \prox_{\rho f}(\z^\ell) \label{eq:prs-xi} \\
+	&\vv^\ell = \prox_{\rho g}(2 \xx^\ell - \z^\ell) \\
+	&\z^{\ell+1} = \z^\ell + \vv^\ell - \xx^\ell.
+\end{align}
+\end{subequations}
+The proximal of $g$ corresponds to the projection onto the consensus space, and thus can be characterized simply by
+$$
+	\vv_{i,e}^\ell = \frac{1}{D-1} \sum_{e' | i \sim e'} \left( 2 \tv_{i,e'}^\ell - \z_{e'}^\ell\right).
+$$
+Regarding the proximal of $f$, is is clear that $f$ is separable, in the sense that it can be written as
+$$
+	f(\xx) = \sum_{e \in \mathcal{V}} \left[ \frac{1}{2 (D-1)} \norm{\begin{bmatrix} \tv_{i,e} \\ \tv_{j,e} \end{bmatrix} - \begin{bmatrix} \y_i \\ \y_j \end{bmatrix}}^2 + \iota_{e}(\tv_{i,e},\tv_{j,e}) \right]
+$$
+where $\iota_{e}$ denotes the indicator function of~\eqref{eq:interpolation-constraints}. Therefore, the update~\eqref{eq:prs-xi} can be solved by solving (possibly in parallel) the problems
+\begin{equation}\label{eq:local-updates}
+\begin{split}
+	(\tv_{i,e},\tv_{j,e}) &= \argmin \left\{ \frac{1}{2 (D-1)} \norm{\begin{bmatrix} \tv_{i,e} \\ \tv_{j,e} \end{bmatrix} - \begin{bmatrix} \y_i \\ \y_j \end{bmatrix}}^2 + \frac{1}{2\rho} \norm{\begin{bmatrix} \tv_{i,e} \\ \tv_{j,e} \end{bmatrix} - \z_e^\ell} \right\}\\
+	&\text{s.t.} \quad \norm{\tv_{i,e} - \tv_{j,e}}^2 \leq \zeta^2 \norm{\x_i - \x_j}^2.
+\end{split}
+\end{equation}
+
+%------------------------------------------------------------
+\subsection{Local updates}
+The problems~\eqref{eq:local-updates} are quadratic programs with quadratic constraints, that is, they can be written in the form
+\begin{subequations}
+\begin{align}
+	&\min_{\xx} \frac{1}{2} \xx^\top \Pm_0 \xx + \langle \q_0, \xx \rangle \\
+	&\text{s.t.} \ \frac{1}{2} \xx^\top \Pm_1 \xx + \langle \q_1, \xx \rangle + r_1 \leq 0.
+\end{align}
+\end{subequations}
+In particular, for the cost function we have
+$$
+	\Pm_0 = \left( \frac{1}{D-1} + \frac{1}{\rho} \right) \Im_{2n}, \quad \q_0 = - \left( \frac{1}{D-1} \begin{bmatrix} \y_i \\ \y_j \end{bmatrix} + \frac{1}{\rho} \z_e^\ell \right)
+$$
+and for the constraint
+$$
+	\Pm_1 = 2 \begin{bmatrix} \Im_n & - \Im_n \\ - \Im_n & \Im_n \end{bmatrix}, \quad \q_1 = 0{2n}, \quad r_1 = - \zeta^2 \norm{\x_i - \x_j}^2.
+$$
 
 %------------------------------------------------------------------------------
 \section{Interpolation Using MAP}
