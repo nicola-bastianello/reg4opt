@@ -1,0 +1,188 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx,tikz}
+\usepackage[left=2cm,right=2cm,top=2cm,bottom=2cm]{geometry}
+\usepackage{bm,fixmath}
+\usepackage{color}
+\usepackage{subcaption}
+\usepackage{xspace}
+
+\usetikzlibrary{calc,shapes,arrows.meta,decorations.pathreplacing,decorations.markings}
+
+% math operators
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator{\conv}{conv}
+\DeclareMathOperator{\prox}{prox}
+\DeclareMathOperator{\proj}{proj}
+\DeclareMathOperator{\fix}{fix}
+\DeclareMathOperator{\diam}{diam}
+\DeclareMathOperator{\image}{Im}
+\DeclareMathOperator{\dist}{dist}
+\DeclareMathOperator{\udist}{\overline{dist}}
+\DeclareMathOperator{\ldist}{\underline{dist}}
+
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+% double inner product
+\newcommand{\zprod}[1]{\langle\kern-0.25ex\langle#1\rangle\kern-0.25ex\rangle}
+% triple norm
+\newcommand{\znorm}[1]{{\left\vert\kern-0.25ex\left\vert\kern-0.25ex\left\vert #1 
+    \right\vert\kern-0.25ex\right\vert\kern-0.25ex\right\vert}}
+
+
+% theorem environments
+\usepackage{amsthm}
+
+\theoremstyle{plain} % Plain: italic text, extra space above and below
+\newtheorem{example}{Example}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{axiom}[theorem]{Axiom}
+
+\theoremstyle{definition} % Definition: upright text, extra space above and below
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{assumption}[theorem]{Assumption}
+\newtheorem{conjecture}[theorem]{Conjecture}
+
+\theoremstyle{remark} % Remark: upright text, no extra space above or below
+\newtheorem{remark}[theorem]{Remark}
+
+% algorithms packages and commands
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+% define commands for algorithm environment
+\algrenewcommand\algorithmicrequire{\textbf{Input:}}
+
+% new math commands
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+
+\newcommand{\x}{\mathbold{x}}
+\newcommand{\y}{\mathbold{y}}
+
+\newcommand{\I}{\mathcal{I}}
+\newcommand{\T}{\mathcal{T}}
+
+
+
+% file's info
+\author{Nicola Bastianello}
+\title{Motivating Results}
+
+
+\begin{document}
+
+\maketitle
+
+%---------------------------------------------------------------------------
+\section{Result 1 (static)}
+The following result shows that the fixed point residual converges linearly fast for contractive operators, but sub-linearly (with the square root of the iteration number) for averaged operators.
+
+\begin{proposition}
+Consider an operator $\T : \R^n \to \R^n$ and the Banach-Picard iteration
+$$
+	\x^{\ell+1} = \T \x^\ell, \quad \ell \in \N.
+$$
+Then, the fixed point residual $\{ \norm{\x^{\ell+1} - \x^\ell} \}$ is bounded as:
+\begin{itemize}
+	\item \emph{$\T$ $\zeta$-contractive}: $\norm{\x^{\ell+1} - \x^\ell} \leq (1 + \zeta) \zeta^\ell \norm{\x^0 - \x^*}$;
+	
+	\item \emph{$\T$ $\alpha$-averaged}: $\norm{\x^{\ell+1} - \x^\ell} \leq \frac{1}{\sqrt{\ell+1}} \sqrt{\frac{\alpha}{1 - \alpha}} \norm{\x^0 - \x^*}$.
+\end{itemize}
+\end{proposition}
+%
+\begin{proof}
+\emph{$\T$ contractive}: by \cite[Theorem~1.50]{bauschke_convex_2017} we know that
+$$
+	\norm{\x^\ell - \x^*} \leq \zeta^\ell \norm{\x^0 - \x^*};
+$$
+using the triangle inequality we then have
+\begin{align*}
+	\norm{\x^{\ell+1} - \x^\ell} &\leq \norm{\x^{\ell+1} - \x^*} + \norm{\x^\ell - \x^*} \\
+	&\leq \zeta \norm{\x^\ell - \x^*} + \norm{\x^\ell - \x^*} \\
+	&\leq (1 + \zeta) \norm{\x^\ell - \x^*} \\
+	&\leq (1 + \zeta) \zeta^\ell \norm{\x^0 - \x^*}.
+\end{align*}
+
+\emph{$\T$ averaged}: by the averagedness of $\T$ we can write, for some $\x^* \in \fix(\T)$:
+$$
+	\norm{\x^{\ell+1} - \x^*}^2 \leq \norm{\x^\ell - \x^*}^2 - \frac{1 - \alpha}{\alpha} \norm{\x^{\ell+1} - \x^\ell}^2;
+$$
+rearranging, and summing over time we get
+$$
+	\sum_{h = 0}^\ell \norm{\x^{h+1} - \x^h}^2 \leq \frac{\alpha}{1 - \alpha} \norm{\x^0 - \x^*}^2
+$$
+where we used the telescoping sum and removed the negative term $- \norm{\x^{\ell+1} - \x^\ell}^2$.
+
+Since $\{ \norm{\x^{h+1} - \x^h}^2 \}$ is a monotonically decreasing sequence, we know that $(\ell+1) \norm{\x^{\ell+1} - \x^h} \leq \sum_{h = 0}^\ell \norm{\x^{h+1} - \x^h}^2$; using this fact, rerranging and taking the square root yields the thesis.
+\end{proof}
+
+
+%---------------------------------------------------------------------------
+\section{Result 2 (dynamic)}
+Consider the time-varying Banach-Picard
+$$
+	\x_{k+1} = \T_{k+1} \x_k, \quad k \in \N,
+$$
+and for simplicity assume that $\x_0 \in \fix(\T_0)$.
+
+\begin{proposition}
+The cumulative fixed point residual is bounded as:
+\begin{itemize}
+	\item \emph{$\T_k$ $\zeta$-contractive}:
+	$$
+		\frac{1}{k+1} \sum_{h = 0}^k \norm{\x_{h+1} - \x_h}^2 \leq \left( \sigma \frac{1 + \zeta}{1 - \zeta} \right)
+	$$
+	where $\sigma \geq \max_k \norm{\x_k^* - \x_{k-1}^*}$;
+	
+	\item \emph{$\T_k$ $\alpha$-averaged} and defined on a compact domain:
+	$$
+		\frac{1}{k+1} \sum_{h = 0}^k \norm{\x_{h+1} - \x_h}^2 \leq \frac{\alpha}{1 - \alpha} (\tau^2 + 2 \delta \tau)
+	$$
+	where $\tau$ is the maximum distance between consecutive fixed point sets $\fix(\T_k)$ and $\fix(\T_{k-1})$, and $\delta$ is the diameter of $\T_k$'s domains.
+\end{itemize}
+\end{proposition}
+%
+\begin{proof}
+\emph{$\T_k$ contractive}: using triangle inequality and contractiveness we can write
+\begin{align*}
+	\norm{\x_{k+1} - \x_k} &\leq \norm{\x_{k+1} - \x_{k+1}^*} + \norm{\x_k - \x_{k+1}^*} \\
+	&\leq (1 + \zeta) \norm{\x_k - \x_{k+1}^*} \\
+	&\leq (1 + \zeta) (\norm{\x_k - \x_k^*} + \sigma) \\
+	&\leq (1 + \zeta) \left( \zeta^k \norm{\x_0 - \x_0^*} + \frac{\sigma}{1 - \zeta} \right) = \frac{1 + \zeta}{1 - \zeta} \sigma.
+\end{align*}
+
+Taking the square and averaging over time we get:
+\begin{align*}
+	\frac{1}{k+1} \sum_{h = 0}^k \norm{\x_{h+1} - \x_h}^2 \leq \left( \frac{1 + \zeta}{1 - \zeta} \sigma \right)^2.
+\end{align*}
+
+\emph{$\T_k$ averaged}: using the averagedness we have
+$$
+	\norm{\x_{k+1} - \x_{k+1}^*}^2 \leq \norm{\x_k - \x_{k+1}^*}^2 - \frac{1 - \alpha}{\alpha} \norm{\x_{k+1} - \x_k}^2;
+$$
+rearranging and using triangle and Cauchy-Schwarz inequalities we have
+\begin{align*}
+	\norm{\x_{k+1} - \x_k}^2 &\leq \frac{\alpha}{1 - \alpha} \left( \norm{\x_k -\x_{k+1}^*}^2 - \norm{\x_{k+1} - \x_{k+1}^*}^2 \right) \\
+	&\leq \frac{\alpha}{1 - \alpha} \left( \norm{\x_k - \x_k^*}^2 - \norm{\x_{k+1} - \x_{k+1}^*}^2 + \norm{\x_k^* - \x_{k+1}^*}^2 + 2 \norm{\x_k - \x_{k+1}^*} \norm{\x_k^* - \x_{k+1}^*} \right) \\
+	&\leq \frac{\alpha}{1 - \alpha} \left( \norm{\x_k - \x_k^*}^2 - \norm{\x_{k+1} - \x_{k+1}^*}^2 + \tau^2 + 2 \delta \tau \right)
+\end{align*}
+where the last inequality follows by $\norm{\x_k^* - \x_{k-1}^*} \leq \tau$ and $\delta$ being the diameter of the compact domain.
+
+Averaging over time, and noticing that the error terms cancel out we have
+$$
+	\frac{1}{k+1} \sum_{h = 0}^k \norm{\x_{h+1} - \x_h}^2 \leq \frac{\alpha}{1 - \alpha} \left( \frac{1}{k+1} \norm{\x_0 - \x_0^*}^2 + \tau^2 + 2 \delta \tau \right) = \frac{\alpha}{1 - \alpha} (\tau^2 + 2 \delta \tau).
+$$
+\end{proof}
+
+
+
+\bibliographystyle{ieeetr}
+\bibliography{references}
+
+\end{document}
