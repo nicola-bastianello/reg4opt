@@ -18,9 +18,9 @@ from tvopt.utils import random_matrix
 from tvopt import costs, solvers
 
 from reg4opt.operators import Gradient, Proximal
-from reg4opt.regression import operator_regression
+from reg4opt.regression import operator_regression, convex_regression
 from reg4opt.interpolation import interpolator
-from reg4opt.utils import print_progress, generate_data
+from reg4opt.utils import print_progress, generate_data, generate_data_cr
 from reg4opt.solvers import fista, anderson_acceleration
 
 
@@ -82,6 +82,7 @@ num_data = 5
 var = 1e-2 # for choosing training data
 
 bar_zeta = 0.5 # contraction constant of approximate operator
+bar_mu, bar_L = 1, 1e5 # strong convexity and smoothness moduli
 
 num_iter = 5 # num. of iterations per sampled problem
 
@@ -106,7 +107,6 @@ print("Proximal gradient method ...")
 x = np.zeros(f.dom.shape + (f.time.num_samples+1,))
 x[...,0] = x0
 
-t = 0
 
 for k in range(f.time.num_samples):
     
@@ -127,7 +127,6 @@ print("FISTA ...")
 x = np.zeros(f.dom.shape + (f.time.num_samples+1,))
 x[...,0] = x0
 
-t = 0
 
 for k in range(f.time.num_samples):
     
@@ -149,7 +148,6 @@ x = np.zeros(f.dom.shape + (f.time.num_samples+1,))
 x[...,0] = x0
 x_old = [x0]
 
-t = 0
 
 for k in range(f.time.num_samples):
     
@@ -175,13 +173,12 @@ for k in range(f.time.num_samples):
 err_aa = [la.norm(x[...,k+1] - s[:,[k]]) for k in range(f.time.num_samples)]
 
 
-# -------------------- PRS
-print("OpReg (PRS) ...")
+# -------------------- OPERATOR REGRESSION
+print("OpReg ...")
 
 x = np.zeros(f.dom.shape + (f.time.num_samples+1,))
 x[...,0] = x0
 
-t = 0
 
 for k in range(f.time.num_samples):
     
@@ -193,7 +190,7 @@ for k in range(f.time.num_samples):
     for _ in range(num_iter):
         
         # generate training data
-        x_i, y_i = generate_data(T_k, y, num_data, var)
+        x_i, y_i = generate_data(T_k, y, num_data, var=var)
         
         # apply OpReg solver
         t_i, _ = operator_regression(x_i, y_i, bar_zeta, solver="PRS", tol=tol, rho=rho, newton_params=newton_params)
@@ -205,49 +202,15 @@ for k in range(f.time.num_samples):
     print_progress(k+1, f.time.num_samples)
 
 # results
-err_prs = [la.norm(x[...,k+1] - s[:,[k]]) for k in range(f.time.num_samples)]
+err_or = [la.norm(x[...,k+1] - s[:,[k]]) for k in range(f.time.num_samples)]
 
 
-# -------------------- CVXPY
-print("OpReg (CVXPY) ...")
-
-x = np.zeros(f.dom.shape + (f.time.num_samples+1,))
-x[...,0] = x0
-
-t = 0
-
-for k in range(f.time.num_samples):
-    
-    T_k = T.sample(k*t_s) # sampled operator
-    
-    # apply operator regression solver
-    y = x[...,k]
-    
-    for _ in range(num_iter):
-        
-        # generate training data
-        x_i, y_i = generate_data(T_k, y, num_data, var)
-        
-        # apply OpReg solver
-        t_i, _ = operator_regression(x_i, y_i, bar_zeta, solver="CVXPY")
-        
-        y = g.proximal(t_i[0], step)
-    
-    x[...,k+1] = y
-    
-    print_progress(k+1, f.time.num_samples)
-
-# results
-err_cp = [la.norm(x[...,k+1] - s[:,[k]]) for k in range(f.time.num_samples)]
-
-
-# -------------------- INTERPOLATED (PRS)
-print("OpReg (PRS, interpolated) ...")
+# -------------------- INTERPOLATED
+print("OpReg (interpolated) ...")
 
 x = np.zeros(f.dom.shape + (f.time.num_samples+1,))
 x[...,0] = x0
 
-t = 0
 
 for k in range(f.time.num_samples):
     
@@ -258,7 +221,7 @@ for k in range(f.time.num_samples):
     
     # ------ first step: solve OpReg
     # training data
-    x_i, y_i = generate_data(T_k, y, num_data, var)
+    x_i, y_i = generate_data(T_k, y, num_data, var=var)
     
     # apply OpReg solver
     t_i, _ = operator_regression(x_i, y_i, bar_zeta, solver="PRS", tol=tol, rho=rho, newton_params=newton_params)
@@ -271,12 +234,44 @@ for k in range(f.time.num_samples):
     
         y = interpolator(y, x_i, t_i, bar_zeta)
     
-    x[...,k+1] = g.proximal(y, step)  
+    x[...,k+1] = g.proximal(y, step)
     
     print_progress(k+1, f.time.num_samples)
 
 # results
 err_in = [la.norm(x[...,k+1] - s[:,[k]]) for k in range(f.time.num_samples)]
+
+
+# -------------------- CONVEX REGRESSION
+print("Convex regression ...")
+
+x = np.zeros(f.dom.shape + (f.time.num_samples+1,))
+x[...,0] = x0
+
+
+for k in range(f.time.num_samples):
+    
+    f_k = f.sample(k*t_s) # sampled cost
+    
+    # apply convex regression solver
+    y = x[...,k]
+    
+    for _ in range(num_iter):
+        
+        # generate training data
+        x_i, y_i, w_i = generate_data_cr(f_k, y, num_data, gradient=True, var=var)
+        
+        # apply OpReg solver
+        _, g_i = convex_regression(x_i, y_i, bar_mu, bar_L, w=w_i, solver="PRS", tol=tol, rho=rho, newton_params=newton_params)
+        
+        y = g.proximal(y - step*g_i[0], step)
+    
+    x[...,k+1] = y
+    
+    print_progress(k+1, f.time.num_samples)
+
+# results
+err_cr = [la.norm(x[...,k+1] - s[:,[k]]) for k in range(f.time.num_samples)]
 
 
 #%% RESULTS
@@ -299,9 +294,9 @@ plt.figure()
 plt.semilogy(time, err_pg, label="Proximal gradient", marker=markers[0], markevery=50)
 plt.semilogy(time, err_f, label="FISTA", marker=markers[1], markevery=50)
 plt.semilogy(time, err_aa, label="Anderson", marker=markers[2], markevery=50)
-plt.semilogy(time, err_prs, label="OpReg (PRS)", marker=markers[3], markevery=50)
-plt.semilogy(time, err_cp, label="OpReg (CVXPY)", marker=markers[4], markevery=50)
-plt.semilogy(time, err_in, label="OpReg (PRS, interpolation)", marker=markers[5], markevery=50)
+plt.semilogy(time, err_or, label="OpReg", marker=markers[3], markevery=50)
+plt.semilogy(time, err_cr, label="CvxReg", marker=markers[4], markevery=50)
+plt.semilogy(time, err_in, label="OpReg (interpolation)", marker=markers[5], markevery=50)
 
 
 plt.grid()
@@ -321,9 +316,9 @@ plt.figure()
 plt.semilogy(num_iter*time, np.cumsum(err_pg)/time, label="Proximal gradient", marker=markers[0], markevery=50)
 plt.semilogy(num_iter*time, np.cumsum(err_f)/time, label="FISTA", marker=markers[1], markevery=50)
 plt.semilogy((num_data+num_iter-1)*time, np.cumsum(err_aa)/time, label="Anderson", marker=markers[2], markevery=50)
-plt.semilogy(num_data*num_iter*time, np.cumsum(err_prs)/time, label="OpReg (PRS)", marker=markers[3], markevery=50)
-plt.semilogy(num_data*num_iter*time, np.cumsum(err_cp)/time, label="OpReg (CVXPY)", marker=markers[4], markevery=50)
-plt.semilogy((num_data+num_iter-1)*time, np.cumsum(err_in)/time, label="OpReg (PRS, interpolation)", marker=markers[5], markevery=50)
+plt.semilogy(num_data*num_iter*time, np.cumsum(err_or)/time, label="OpReg", marker=markers[3], markevery=50)
+plt.semilogy(num_data*num_iter*time, np.cumsum(err_cr)/time, label="CvxReg", marker=markers[4], markevery=50)
+plt.semilogy((num_data+num_iter-1)*time, np.cumsum(err_in)/time, label="OpReg (interpolation)", marker=markers[5], markevery=50)
 
 
 plt.grid()
