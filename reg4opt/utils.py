@@ -16,14 +16,14 @@ ran = default_rng()
 from tvopt import sets
 
 
-#%% DATA GENERATION FOR OPERATOR REGRESSION
+#%% DATA GENERATION FOR REGRESSION METHODS
 
-def generate_data(T, x, num_data, method="normal", **kwargs):
+def sample_training_points(x, num_data, method="normal", **kwargs):
     """
-    Generate the training data for an operator regression problem.
+    Sample training points.
     
-    The function encapsulates different method of generating the training data
-    for an operator regression problem. The choices are
+    The function encapsulates different methods of generating the training 
+    points for a regression problem. The choices are
     
     * normal: the data are chosen as :math:`x + d_i`, where
       :math:`d_i` are random vectors with normal distribution;
@@ -32,6 +32,47 @@ def generate_data(T, x, num_data, method="normal", **kwargs):
       :math:`e_j` a randomly selected vector of the standard basis;
     * uniform: the data are chosen as :math:`x + d_i`, where
       :math:`d_i` are random vectors with uniform distribution.
+
+    Parameters
+    ----------
+    x : ndarray
+        The center of the training data, that is, all other training points are
+        chosen as perturbations of `x`.
+    num_data : int
+        The number of training points, including `x`, which means that 
+        `num_data`-1 points are randomly selected.
+    method : str, optional
+        The method to choose the training points, defaults to "normal". 
+        Alternatives are "fireworks" (alias "fw", "f") and "uniform" (alias "u").
+    **kwargs : tuple
+        The arguments of `method`.
+
+    Returns
+    -------
+    list
+        The points :math:`x_i` selected by the method.
+    """
+    
+    if method == "fireworks" or method == "fw" or method == "f":
+        # pick directions and magnitudes
+        d = ran.choice(range(x.size), size=num_data-1, replace=False)
+        m = math.sqrt(kwargs["var"])*ran.standard_normal(num_data-1)
+        
+        # create the points
+        return [x] + [x + m[i]*_standard_basis(d[i], x.size) for i in range(num_data-1)]
+    
+    elif method == "uniform" or method == "u":
+        return [x] + [x + 2*kwargs["a"]*ran.random(x.shape)-kwargs["a"] for _ in range(num_data-1)]
+        
+    else: # normal
+        return [x] + [x + math.sqrt(kwargs["var"])*ran.standard_normal(x.shape) for _ in range(num_data-1)]
+
+def generate_data(T, x, num_data, method="normal", **kwargs):
+    """
+    Generate the training data for an operator regression problem.
+    
+    The function encapsulates different method of generating the training data
+    for an operator regression problem.
 
     Parameters
     ----------
@@ -57,54 +98,56 @@ def generate_data(T, x, num_data, method="normal", **kwargs):
     
     See Also
     --------
-    generate_data_n : Data generation with normal distribution.
-    generate_data_fw : Data generation with fireworks method.
-    generate_data_u : Data generation with unform distribution.
+    sample_training_points : The function used to sample :math:`x_i`.
     """
     
-    if method == "normal" or method == "n":
-        return generate_data_n(T, x, num_data, **kwargs)
-    elif method == "fireworks" or method == "fw" or method == "f":
-        return generate_data_fw(T, x, num_data, **kwargs)
-    elif method == "uniform" or method == "u":
-        return generate_data_fw(T, x, num_data, **kwargs)
+    x_i = sample_training_points(x, num_data, method=method, **kwargs)
+    
+    return x_i, [T.operator(z) for z in x_i]
+
+def generate_data_cr(f, x, num_data, gradient=False, method="normal", **kwargs):
+    """
+    Generate the training data for a convex regression problem.
+    
+    The function encapsulates different method of generating the training data
+    for a convex regression problem, including gradient information
+    if required.
+
+    Parameters
+    ----------
+    f : tvopt.costs.Cost
+        The cost source of the training data.
+    x : ndarray
+        The center of the training data, that is, all other training points are
+        chosen as perturbations of `x`.
+    num_data : int
+        The number of training points, including `x`, which means that 
+        `num_data`-1 points are randomly selected.
+    gradient : bool, optional
+        Specify if also gradient information should be returned.
+    method : str, optional
+        The method to choose the training points, defaults to "normal".
+    **kwargs : tuple
+        The arguments of `method`.
+
+    Returns
+    -------
+    list
+        The points :math:`x_i` selected by the method.
+    list
+        The operator `T` evaluated in the chosen points.
+    
+    See Also
+    --------
+    sample_training_points : The function used to sample :math:`x_i`.
+    """
+    
+    x_i = sample_training_points(x, num_data, method=method, **kwargs)
+    
+    if gradient:
+        return x_i, [f.function(z) for z in x_i], [f.gradient(z) for z in x_i]
     else:
-        return generate_data_n(T, x, num_data, **kwargs)
-
-def generate_data_n(T, x, num_data, var=1):
-    """
-    Data generation using perturbation that are normally distributed with
-    variance `var`. See `generate_data` for details.
-    """
-
-    x_i = [x] + [x + math.sqrt(var)*ran.standard_normal(x.shape) for _ in range(num_data-1)]
-    
-    return x_i, [T.operator(z) for z in x_i]
-
-def generate_data_fw(T, x, num_data, var=1):
-    """
-    Data generation using perturbation chosen according to the fireworks
-    method. See `generate_data` for details.
-    """
-    
-    # pick directions and magnitudes
-    d = ran.choice(range(x.size), size=num_data-1, replace=False)
-    m = math.sqrt(var)*ran.standard_normal(num_data-1)
-    
-    # create the points
-    x_i = [x] + [x + m[i]*_standard_basis(d[i], x.size) for i in range(num_data-1)]
-    
-    return x_i, [T.operator(z) for z in x_i]
-
-def generate_data_u(T, x, num_data, a=1):
-    """
-    Data generation using perturbation that are uniformly distributed with
-    range -`a` to `a`. See `generate_data` for details.
-    """
-    
-    x_i = [x] + [x + 2*a*ran.random(x.shape)-a for _ in range(num_data-1)]
-    
-    return x_i, [T.operator(z) for z in x_i]
+        return x_i, [f.function(z) for z in x_i], None
 
 
 #%% LINEAR ALGEBRA
