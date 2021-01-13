@@ -128,11 +128,18 @@ We present OpReg-Boost, a novel acceleration scheme to boost the convergence pro
 %------------------------------------------------------------------------------
 \section{Introduction}\label{sec:introduction}
 
-In recent years, we have witnessed the growing interest in time-varying optimization problems, where the cost function, constraints, or both are parametrized over data streams, and therefore are changing over time~\cite{a bunch}. Notable applications for the machine learning community are subspace tracking for video streaming and online sparse subspace clustering, see~\cite{1,2,3} and references therein. 
+[Add others' papers, esp. ML community]
 
-Solving time-varying optimization problems with online algorithms amounts to find and track continuously changing optimizers. If we let the optimizers trajectory be defined as $\x^*(t)$, a notable results for online algorithms in this context is that if the \emph{path-length} $\sum_{k=1}^T \|\x^*(t_{k+1}) - \x^*(t_{k})\|$, for subsequent time instances $t_{k+1}, t_k$, is not sub-linear in $T$, then online algorithms will have an asymptotical error $O(1)$~\cite{.,.} (or $O(T)$ in terms of pertinent notions of regret)\footnote{Jad.. }. While errors can be made small, for instance with the use of prediction-correction algorithms~\cite{.,.}, the existence of an asymptotical error remains a distinctive feature of online algorithms for time-varying optimization. 
 
-An eye-opening intuition is then to use the existence of said error to one's advantage, by introducing regularizations in the problem formulation that boost the algorithms convergence. In time-varying scenarios, where convergence rate is crucial, often time then one obtains smaller asymptotical error w.r.t. the original problem if one uses regularizations than if they do not. To reiterate, surprisingly, often \emph{there is no trade-off between accuracy and speed} and regularized problems offer better speed and asymptotical errors w.r.t. the original problem, even though we are modifying the problem formulation~\cite{.,.}.  
+In recent years, we have witnessed the growing interest in time-varying optimization problems, where the cost function, constraints, or both are parametrized over data streams, and therefore are changing over time~\cite{Jadbabaie2015, SPM}. Notable applications for the machine learning community are subspace tracking for video streaming and online sparse subspace clustering, see~\cite{Asif2014, Akhriev2020, SPM} and references therein. 
+
+Solving time-varying optimization problems with online algorithms amounts to find and track continuously changing optimizers. If we let the optimizers trajectory be defined as $\x^*(t)$, a significant results for online algorithms in this context is that if the \emph{path-length} $\sum_{k=1}^T \|\x^*(t_{k+1}) - \x^*(t_{k})\|$, for subsequent time instances $t_{k+1}, t_k$, is not sub-linear in $T$, then online algorithms will have an asymptotical error $O(1)$~\cite{Besbes2013, Jadbabaie2015, SPM, NaLi2020} (or $O(T)$ in terms of pertinent notions of regret)\footnote{
+%%% Footnote Jadbabaie:
+In~\cite{Jadbabaie2015} and subsequent works, [Finish]
+%%%
+}. While errors can be made small, for instance with the use of prediction-correction algorithms~\cite{Dontchev2013, simonetto_time-varying_2020}, the existence of an asymptotical error remains a distinctive feature of online algorithms for time-varying optimization. 
+
+An eye-opening intuition is then to use the existence of said error to one's advantage, by introducing regularizations in the problem formulation that boost the algorithms convergence. In time-varying scenarios, where convergence rate is crucial, often time then one obtains smaller asymptotical error w.r.t. the original problem if one uses regularizations than if they do not. To reiterate, surprisingly, often when one uses pertinent regularizations, \emph{there is no trade-off between accuracy and speed} and regularized problems offer better speed and asymptotical errors w.r.t. the original problem, even though we are modifying the problem formulation~\cite{Simonetto2014d, Bastianello2020asi}.  
 
 By building on this field-defining fact, once can ask what is the best regularization for a time-varying problem at hand? In this paper, we explore this question in two slightly different angles. First, we ask ourselves: 
 
@@ -140,49 +147,55 @@ By building on this field-defining fact, once can ask what is the best regulariz
 
 This gives rise to convex-regression-based boosting. 
  
-To fix the ideas, let us consider Figure.. where we have depicted a .. (as a bonus, since we define ..) 
-
-\begin{figure}
-\centering
-\includegraphics[width=.925\columnwidth]{Figures/explanation}
-\caption{...}
-\label{fig.1}
-\end{figure}
+To fix the ideas in a static setting, let us consider Figure~\ref{fig.1}, where we have depicted a non-convex function $f$, which we can evaluate at specific points (grey dot). The idea behind Q1 and convex-regression-based boosting is then to interpret the functional evaluation as noisy measurements of an underlying true convex function $\hat{f}$, which we want to learn. As long as $f$ and $\hat{f}$ are not dramatically different, the reasoning is that solving the problem of minimizing $\hat{f}$ instead of $f$ will then give us a boost in term of convergence rate and asymptotical error in online algorithm, despite the fact that $f$ and $\hat{f}$ are different. In addition, and for free, since we have some liberty in designing the functional properties of $\hat{f}$ (e.g., Lipschitz constant, strong convexity constant, etc.), we can thoroughly optimize the parameter of the online algorithm, e.g., its stepsize, further boosting convergence.  
 
 Convex regression is however not the only way to learn good problems, and not the best one (as we are going to explore in the simulation section). A better way is operator regression, which stems from the second question we ask: 
 
 {\bf (Q2) } \emph{what is the closest algorithm to a given online algorithm for solving a time-varying problem that has all the algorithmic properties we need for fast convergence?  
 }
 
+In Figure~\ref{fig.1}, we have reported the case of a gradient descent algorithm in terms of a fixed point operator $\mathcal{T} = I - \alpha \nabla_{x}f$, with $\alpha>0$ being the stepsize. The idea here is to use evaluations of $\mathcal{T}$ as noisy measurements of a true underlying operator $\hat{\mathcal{T}}$, with useful properties (e.g., a contractive operator). By using $\hat{\mathcal{T}}$ en lieu of $\mathcal{T}$, then one will be able to boost convergence and reduce the asymptotical error, once again, if $\mathcal{T}$ and $\hat{\mathcal{T}}$ are not dramatically different. 
+
+This latter methodology offers the most promise (as we will showcase in simulation) and it is what we call OpReg-Boost (boosting by operator regression). 
 
 
-
-
-
-Explain OpReg.. 
+\begin{figure}
+\centering
+\includegraphics[width=.925\columnwidth]{Figures/explanation}
+\caption{The idea of boosting via projection onto the space of ``good'' functions or ``good'' fixed point operators. One can interpret the evaluation of function $f$ or operator $\mathcal{T}$ as noisy evaluations of an underlying ``better'' function or operator, $\hat{f}$ and $\hat{\mathcal{T}}$, respectively, and use the latter to solve the problem instead. This gives rise to convex-regression-based boosting or operation-regression-based boosting (OpReg-Boost).}
+\label{fig.1}
+\end{figure}
 
 In this paper, we offer the following contributions,
 \begin{enumerate}
-\item . 
+\item We present two novel regression methods to \emph{learn-project-and-solve} time-varying optimization problems that are not necessarily convex. The methods are based on convex regression and operator regression, and -- especially the latter -- is promising in boosting convergence without introducing a larger asymptotical error. 
+%%
+\item We present efficient ways to solve the operation regression problem via a pertinent reformulation of the Peaceman-Rachford splitting method. [.. more ]
+%%
+\item We [Interpolation]
+%%
+\item We showcase the [simulation results]
 \end{enumerate}
 
 \subsection{Literature review}
 
-Time-varying optimization and online algorithms are widely treated in~\cite{.,.,.}, while a more machine learning approach is offered in~\cite{.} and subsequent work. The notion that regularizations help convergence possibly without introducing extra asymptotical error is presented in the papers~\cite{.,.,.}. While we refer to~\cite{1,2} for seminal papers close in spirit in the static domain. 
+Time-varying optimization and online algorithms are extensively covered in~\cite{SPM, simonetto_time-varying_2020} and references therein, while a more machine learning approach is offered in~\cite{Jadbabaie2015} and subsequent work. The notion that regularizations help convergence possibly without introducing extra asymptotical error is presented in the papers~\cite{Simonetto2014d, Bastianello2020asi}. While we refer to~\cite{Devolder2011,Nedic2011} for seminal papers close in spirit in the static domain. 
 
-Learning the optimize and regularize is a growing research topic, and we cite~\cite{.,.}, as related work, even though not on the problem we are interested in solving here. 
+Learning the optimize and regularize is a growing research topic, and we cite~\cite{Nghiem2018,Ongie2020}, as related work, even though not on the problem we are interested in solving here. 
 
-Convex regression is treated extensively in~\cite{.,.,.}, while recently being generalized to smooth strongly convex functions~\cite{.} based on A. Taylor's work~\cite{.}.
+Convex regression is treated extensively in~\cite{Seijo2011,Lim2012,Mazumder2019,Blanchet2019}, while recently being generalized to smooth strongly convex functions~\cite{simonetto_smooth_2021} based on A. Taylor's works~\cite{Taylor2016, Taylor2017}.
 
-Operator regression is a recent and at the same old topic. We are going to build on the recent work~\cite{.} and the 19?? paper~\cite{.}.
+Operator regression is a recent and at the same time old topic. We are going to build on the recent work~\cite{ryu_operator_2020} and the F.A. Valentine's 1945 paper~\cite{valentine_lipschitz_1945}.
 
-The acceleration schemes that we compare with are .. 
+The acceleration schemes that we compare with are [Tell and cite] e.g., AA: \cite{pmlr-v119-mai20a}
 
 \subsection{Notation}
 
-Notation is wherever possible standard. We use the concept of $\mu$-weakly convex function, to indicate a function $f:\R^n \to \R$ that becomes convex by adding the term $\frac{\mu}{2} \|\x-\x_0\|^2_2$, $\mu >0$ (see~\cite{1,2,3}). The set of convex functions on $\R^n$ that are $L$-smooth (i.e., have $L$-Lipschitz continuous gradient) and $m$-strongly convex is indicated with $\mathcal{S}_{m,L}(\R^n)$.
+Notation is wherever possible standard. We use the concept of $\mu$-weakly convex function, to indicate a function $f:\R^n \to \R$ that becomes convex by adding the term $\frac{\mu}{2} \|\x-\x_0\|^2_2$, $\mu >0$ (see~\cite{Duchi2018,Davis2019,pmlr-v119-mai20b}). The set of convex functions on $\R^n$ that are $L$-smooth (i.e., have $L$-Lipschitz continuous gradient) and $m$-strongly convex is indicated with $\mathcal{S}_{m,L}(\R^n)$.
 
 An operator $\T: \R^n \to \R^n$ is said to be non-expansive iff $\|T \x - T \y \| \leq \|\x- \y\|$, for all $\x, \y \in \R^n$, whereas it is $\zeta$-contractive, $\zeta\in(0,1)$, iff $\|T \x - T \y \| \leq \zeta \|\x- \y\|$, for all $\x, \y \in \R^n$.
+
+The prox operator [..]
 
 
 \section{Problem Formulation}
@@ -208,23 +221,23 @@ which in turn guarantees that the path-length grows linearly in time,
 \sum_{k\in \N} \|\x^*(t_{k+1}) - \x^*(t_k)\| \leq \Delta k.
 \end{equation}
 
-The first important and known result here is that if function $f$ is in $\mathcal{S}_{m,L}(\R^n)$ uniformly in $k$, then an online algorithm $A$ (here a forward-backward algorithm) can obtain linear convergence to the asymptotical error bound $\Delta/(1-\gamma)$, with $\gamma = ..$; much weaker results hold for the general (weakly) convex case~\cite{.}.
+The first important and known result here is that if function $f$ is in $\mathcal{S}_{m,L}(\R^n)$ uniformly in $k$, then an online algorithm $A$ (here a forward-backward algorithm) can obtain linear convergence to the asymptotical error bound $\Delta/(1-\gamma)$, with optimal $\gamma = \frac{L-m}{L+m}$; much weaker results hold for the general convex case~\cite{Simonetto20XX}, for example [..]
 
-The second important result is that a Tikhonov regularization $..$..
+The second important result is that even a simple Tikhonov regularization $+ \frac{w}{2} \|x\|^2_2$, transforming a smooth but not strongly convex case into a strongly convex one allows for a boost in convergence and [..]
 
 %% say something more, change?
 
 With this in place, our two main research questions are
 \begin{itemize}
-\item {\bf Q1.} Can we project the weakly convex function $f$ onto $\mathcal{S}_{m,L}(\R^n)$
+\item {\bf Q1.} Can we project the weakly convex function $f$ onto $\mathcal{S}_{m,L}(\R^n)$ and learn a better function $\hat{f}$ that has all the functional properties we need (e.g., smooth strong convexity) and use that to solve the problem instead?
 
-\item {\bf Q1.} Can we project the $A$ onto ??
+\item {\bf Q2.} Can we project the fixed point operator of the algorithm we use $\mathcal{T}$ onto the set of contracting operators, learn a better operator $\hat{\mathcal{T}}$, and use that to solve the problem instead?
 
 \end{itemize}
 
 \section{Q1. Convex Regression}
 
-We briefly introduce here the concept of convex regression, while we leave the main technical details to~\cite{1,2,3}. Suppose one has collected $\ell$ noisy measurements of a convex function $\varphi(\x): \R^n \to \R$ (say $y_i$) at points $\x_i \in \R^n$, $i \in I_{\ell}$. Then convex regression is a least-squares approach to estimate the generating function based on the measurements. Formally, letting $\varphi \in \mathcal{S}_{m,L}(\R^n)$, then one would like to solve the infinite-dimensional problem, 
+We briefly introduce here the concept of convex regression, while we leave the main technical details to~\cite{Mazumder2019,simonetto_smooth_2021}. Suppose one has collected $\ell$ noisy measurements of a convex function $\varphi(\x): \R^n \to \R$ (say $y_i$) at points $\x_i \in \R^n$, $i \in I_{\ell}$. Then convex regression is a least-squares approach to estimate the generating function based on the measurements. Formally, letting $\varphi \in \mathcal{S}_{m,L}(\R^n)$, then one would like to solve the infinite-dimensional problem, 
 \begin{equation}\label{eq.inf}
 \hat{\varphi}_{\ell} \in \argmin_{\psi \in \mathcal{S}_{m, L}(\R^n)}\Big\{ \sum_{i\in I_{\ell}} (y_i - \psi(\x_i))^2 \Big\} \,.
 \end{equation}
@@ -232,9 +245,9 @@ We briefly introduce here the concept of convex regression, while we leave the m
 The problem can be then equivalently decomposed into an estimation on the data points, to find the true function values and gradients at the data point ($\f = [\varphi_i]_{i \in I_{\ell}}$, $\bdelta = [\nabla \varphi_i]_{i \in I_{\ell}}$) which turns out to be a convex quadratically constrained quadratic program, 
 \begin{subequations}\label{socp}
 \begin{eqnarray}
-\minimize_{\f\in\R^\ell\!,~ \bdelta \in\R^{n\ell}} && \sum_{i\in I_{\ell}} (y_i - \varphi_i)^2 \\
-\mathrm{subject~to:} &&
-\varphi_i - \varphi_j - \bdelta_j^\transp (\x_i - \x_j) \geq \\ && \quad \frac{1}{2(1 - m/L)}\left(\frac{1}{L}\|\bdelta_i - \bdelta_j \|^2_2 + m \|\x_i - \x_j\|_2^2 \right. \nonumber \\ && \quad \left. - 2 \frac{m}{L} (\bdelta_j-\bdelta_i)^\transp (\x_j - \x_i) \right), \quad \forall i, j \in I_n. \nonumber
+(\f^*, \bdelta^*) &&= \argmin_{\f\in\R^\ell\!,~ \bdelta \in\R^{n\ell}} \sum_{i\in I_{\ell}} (y_i - \varphi_i)^2 \\
+\mathrm{s.t.:} &&
+\varphi_i - \varphi_j - \bdelta_j^\transp (\x_i - \x_j) \geq \\ && \hskip-5mm \frac{1}{2(1 - m/L)}\left(\frac{1}{L}\|\bdelta_i - \bdelta_j \|^2_2 + m \|\x_i - \x_j\|_2^2 \right. \nonumber \\ && \hskip-5mm \left. - 2 \frac{m}{L} (\bdelta_j-\bdelta_i)^\transp (\x_j - \x_i) \right), \quad \forall i, j \in I_{\ell}. \nonumber
 \end{eqnarray} 
 \end{subequations}
 
@@ -248,9 +261,7 @@ p_i(\x) := \frac{L-m}{2} \| {\x} - \x_i\|_2^2 + (\bdelta_i^*-m \x_i)^\transp \x 
 \end{multline}
 and where $\mathrm{conv}(\cdot)$ indicates the convex hull.  
 
-Then, to solve Q1, one could consider a number of evaluations of the function $f(\x; t_k)$ as noisy measurements of an underlying convex function $\varphi_k \in ..$ and using the least-squares approach above to \emph{project} function $f(\cdot; t_k)$ onto the space of ``good'' functions .. 
-
-%% Complete.. put the details in the appendix.. 
+Then, to solve Q1, one could consider a number of evaluations of the function $f(\x; t_k)$ as noisy measurements of an underlying convex function $\varphi_k \in \mathcal{S}_{m,L}(\R^n)$ and using the least-squares approach above to \emph{project} function $f(\cdot; t_k)$ onto the space of ``good'' functions [Complete.. put the details in the appendix]
 
 
 %------------------------------------------------------------------------------
@@ -260,151 +271,108 @@ A slightly different approach to convex regression is to look at the algorithm d
 \begin{equation}
 \x_{k+1} = \x_k - \alpha \nabla_{\x} f(\x_k; t_k) \equiv \underbrace{(I - \alpha \nabla_{x}f_k)}_{=:\T_k} (\x_k)
 \end{equation}
-where $\T_k: \R^n \to \R^n$ is the gradient algorithm operator. Interpreting algorithms as operators (possibly averaged, monotone, etc.) has been extremely fruitful for characterizing their convergence properties~\cite{,.,tom-also}. 
+where $\T_k: \R^n \to \R^n$ is the gradient algorithm operator. Interpreting algorithms as operators (possibly averaged, monotone, etc.) has been extremely fruitful for characterizing their convergence properties~\cite{Rockafellar1976, Eckstein1989, bauschke_convex_2017,Ryu2015,tom-also}. 
 
-The counterpart of a smooth strongly convex function $\varphi_k$ in convex regression, is an operator that is contracting, i.e., .. In fact, while smooth strongly convex functions give rise to ...-contracting gradient algorithm operators, the space of contracting operators is larger (i.e., a function $f$ that .. could give rise to ..). 
+The counterpart of a smooth strongly convex function $\varphi_k$ in convex regression, is an operator that is contracting, i.e., $\|\T_k \x - \T_k \y\| \leq \zeta \|\x - \y\|$ for all $\x, \y \in \R^n$ and $\zeta \in (0,1)$. In fact, while $L$-smooth $m$-strongly convex functions give rise to gradient operators that are $..$-contracting, the space of contracting operators is larger (i.e., a function $f$ that is not strongly convex could in principle give rise to a contracting operator~\cite{linear}). 
 
-The key idea now is to interpret .. as measurement of a true .. operator that we want to estimate. 
+The key idea now is to interpret evaluations of $\T_k$ as measurements of a true underlying contracting operator that we want to estimate. 
  
 % GENERAL PROBLEM.. 
+% First, on the data points
 
-% FIrst, on the data points
-
-First of all, we define the observations
-$$
-	\y_i = \T_f \x_i + \e_i, \quad i \in [D]
-$$
-of the operator we want to regularize. Now, using Fact~2.2 in \cite{ryu_operator_2020} we know that an operator $\T$ is $\zeta$-contractive interpolable if and only if it satisfies
-$$
-	\norm{\T \x_i - \T \x_j}^2 \leq \zeta^2 \norm{\x_i - \x_j}^2, \quad \forall i,j \in [D], \ i \neq j.
-$$
-Therefore, we can define the following constrained regression problem:
+First of all, using Fact~2.2 in \cite{ryu_operator_2020}, we know that an operator $\T$ is $\zeta$-contractive interpolable (and therefore extensible to the whole space) if and only if it satisfies
+\begin{equation}
+	\norm{\T \x_i - \T \x_j}^2 \leq \zeta^2 \norm{\x_i - \x_j}^2, \quad \forall i,j \in I_{\ell}, \ i \neq j.
+\end{equation}
+Therefore, we can define the following convex quadratically constrained quadratic program as our regression problem:
 \begin{equation}\label{eq:operator-regression}
 \begin{split}
-	\hat{\tv}_i &= \argmin_{\tv_i \in \R^n} \frac{1}{2} \sum_{i \in [D]} \norm{\tv_i - \y_i}^2 \\
-	&\text{s.t.} \ \norm{\tv_i - \tv_j}^2 \leq \zeta^2 \norm{\x_i - \x_j}^2 \ \forall i,j \in [D], i \neq j
+	\hat{\tv} &= \argmin_{ \R^{n\ell} \ni \tv = [\tv_i]_{i \in I_{\ell}}} \frac{1}{2} \sum_{i \in I_{\ell}} \norm{\tv_i - \T_k \x_i}^2 \\
+	&\text{s.t.} \ \norm{\tv_i - \tv_j}^2 \leq \zeta^2 \norm{\x_i - \x_j}^2 \ \forall i,j \in I_{\ell}, i \neq j,
 \end{split}
 \end{equation}
-where again the cost function is a least square terms on the observations and the constraints enforce contractiveness.
+where again the cost function is a least square terms on the ``observations''' and the constraints enforce contractiveness. In particular, the optimal values $\hat{\tv}$ on the data points represent the evaluations of a $\zeta$-contracting operator when applied to those points. 
+
+To extend [interpolation here]
 
 %% Then Interpolation here.. 
 
+\subsection{Optional auto-tuning }
 
-\subsection{Auto-tuning }
+Discretionarily, we can also modify~\eqref{eq:operator-regression} by including $w = \zeta^2$ as an unknown of the regression problem with a penalty $c>0$, which then becomes
+\begin{equation}
+\begin{split}
+	(\hat{\tv}, \hat{w}) &= \argmin_{ \R^{n\ell} \ni \tv = [\tv_i]_{i \in I_{\ell}}, w \in (0,1)} \frac{1}{2} \sum_{i \in I_{\ell}} \norm{\tv_i - \y_i}^2 + \frac{c}{2} w^2 \\
+	&\text{s.t.} \ \norm{\tv_i - \tv_j}^2 - w \norm{\x_i - \x_j}^2 \leq 0 \ \forall i,j \in I_{\ell}, i \neq j,
+\end{split}
+\end{equation}
+this way the contraction constant does not need to be specified, and it is \emph{auto-tuned} by the regression.
 
 \subsection{PRS-based solver}
 
-\section{OpReg-Boost}
-
-..
-
-
-
-
-To iron this.. 
-
-
-
-%------------------------------------------------
-\subsection{Problem formulation}
-Consider the following \emph{convex, time-varying} optimization problem
-\begin{equation}\label{eq:continuous-time-problem}
-	\x^*(t) \in \argmin f(\x; t) + g(\x; t)
-\end{equation}
-where $f : \R^n \times \R_+ \to \R$ and $g : \R^n \times \R_+ \to \R \cup \{ +\infty \}$ are closed, convex and proper functions, optionally with $g \equiv 0$. In particular, we are interested in solving the following sequence of static problems derived from sampling~\eqref{eq:continuous-time-problem} at the times $\{ t_k \}_{k \in \N}$, $t_{k+1} - t_k = \Ts$:
-\begin{equation}\label{eq:base-problem}
-	\x^*(t) \in \argmin f(\x; t_k) + g(\x; t_k).
-\end{equation}
-
-
-%% PUT THIS SOMEWHERE
-Problem~\eqref{eq:base-problem} is convex but not strongly so, which means that the performance of online algorithms applied to it is worse than the performance attainable for strongly convex problems. As an example, consider the case $g \equiv 0$, and apply an online gradient descent: if the problem is convex the (static) regret is $O(\sqrt{T})$, with $T$ the number of sampling times, while if the problem is strongly convex the regret is $O(\log(T))$, section~3.1 in \cite{hazan_introduction_2016}. \nicola{Instead of citing Hazan, we should derive a result in an appendix, for example for the fixed point residual}
-
-As we can see from the results just mentioned, in general in online optimization it is not possible to achieve zero regret, due to the dynamic nature of the problem. However, for strongly convex problems smaller regrets can be achieved.
-
-The goal then is to design learning techniques that allow to achieve strongly convex-like performance while tracking a solution trajectory of the problem~\eqref{eq:base-problem} with good accuracy.
-
-
-%------------------------------------------------
-\subsection{Q2. Operator regression}
-First of all, we define the observations
-$$
-	\y_i = \T_f \x_i + \e_i, \quad i \in [D]
-$$
-of the operator we want to regularize. Now, using Fact~2.2 in \cite{ryu_operator_2020} we know that an operator $\T$ is $\zeta$-contractive interpolable if and only if it satisfies
-$$
-	\norm{\T \x_i - \T \x_j}^2 \leq \zeta^2 \norm{\x_i - \x_j}^2, \quad \forall i,j \in [D], \ i \neq j.
-$$
-Therefore, we can define the following constrained regression problem:
-\begin{equation}\label{eq:operator-regression}
-\begin{split}
-	\hat{\tv}_i &= \argmin_{\tv_i \in \R^n} \frac{1}{2} \sum_{i \in [D]} \norm{\tv_i - \y_i}^2 \\
-	&\text{s.t.} \ \norm{\tv_i - \tv_j}^2 \leq \zeta^2 \norm{\x_i - \x_j}^2 \ \forall i,j \in [D], i \neq j
-\end{split}
-\end{equation}
-where again the cost function is a least square terms on the observations and the constraints enforce contractiveness.
-
-
-\paragraph{Auto-tuning contraction}
-We can modify~\eqref{eq:operator-regression} by including $w = \zeta^2$ as an unknown of the regression problem, which becomes
-\begin{equation}
-\begin{split}
-	\hat{\tv}_i &= \argmin_{\tv_i \in \R^n} \frac{1}{2} \sum_{i \in [D]} \norm{\tv_i - \y_i}^2 + \frac{c}{2} w^2 \\
-	&\text{s.t.} \ \norm{\tv_i - \tv_j}^2 - w \norm{\x_i - \x_j}^2 \leq 0 \ \forall i,j \in [D], i \neq j
-\end{split}
-\end{equation}
-this way the contraction constant does not need to be specified, and is \emph{auto-tuned} by the regression.
-
-
-\paragraph{PRS-based solver}
-.... brief description of basic characteristics, reference to the appendix ....
-
+[Add here]
 
 %------------------------------------------------------------------------------
 \section{OpReg-Boost}\label{sec:online-opreg}
 
-Let now $\T_k : \R^n \to \R^n$ be a solver for the convex problem observed at time $t_k$, and assume that the operator has a term $\T_{f,k}$ depending exclusively on $f$ (\emph{e.g.} we have $\T_k = \T_k' \circ \T_{f,k}$). Since the sampled problem is convex, the solver $\T_k$ is non-expansive (actually, averaged, to guarantee convergence).
+We are now ready to present our main algorithm. 
 
-The idea then is to try and learn an approximation of $\T_k$ that is \emph{contractive} rather than non-expansive.
+Having to deal with composite problems $f(\cdot; t_k) + g(\cdot; t_k)$, we focus here on online algorithms of the forward-backward type, i.e., 
+\begin{equation}
+\x_{k+1} = \prox_{g_k} (\x_k - \alpha \nabla_{\x} f_k(\x_k)), \quad k \in \N, \alpha >0.
+\end{equation}
+We let $\T_k = I - \alpha \nabla_{\x} f_k$ be the operator we want to regularize. Since $f$ is not smooth strongly convex in general, $\T_k$ is not contractive (in general). However, since $g_k$ is convex, the prox operator is non-expansive, so that if $\T_k$ were to be contractive then the forward-backward algorithm would be contracting itself and we could have better convergence guarantees. 
 
-Again, w.l.o.g. we are only interested in learning the term $\T_{f,k}$ that depends on $f$. The algorithm can be described as follows: at each time $t_k$ do:
+Therefore, we are interested in learning a contracting $\hat{\T}_k$ by evaluations of $\T_k$. The OpReg-Boost algorithm can be described as follows: at each time $t_k$ do:
 \begin{enumerate}
-	\item sample a new problem, that is, observe $f(\x; t_k)$ and $g(\x; t_k)$;
+	\item Sample a new problem, that is, observe $f(\x; t_k)$ and $g(\x; t_k)$;
 
-	\item approximate the term $\T_{f,k}$ of the solver with a contractive one, and
+	\item Learn the closest contracting operator to $\T_{k}$, say $\hat{\T}_k$ and
 	
-	\item apply the resulting solver. For example if $\T_k = \T_k' \circ \T_{f,k}$, then we apply $\T_k = \T_k' \circ \hat{\T}_{f,k}$ where $\hat{\T}_{f,k}$ is the learned operator.
+	\item Apply $\x_{k+1} = \prox_{g_k} (\hat{\T}_k \x_k)$.
 \end{enumerate}
-The learning step is performed using the (novel) constrained operator regression OpReg described in the following.
+The learning step is performed using the (novel) constrained operator regression described in~\eqref{.}, specifically:
 
-In particular we have the following algorithm \nicola{make this pseudo code}
-For $\ell \in 0, 1, \ldots, M$ (for some $M \in \N$):
 \begin{itemize}
-	\item let $\x_k^\ell$ be the current approximate solution, we choose $D-1$ points around it, \emph{e.g.}
-	$$
-		\x_i = \x_k^\ell + \p_i, \ i = 2, \ldots, D, \ \p_i \sim \mathcal{N}(0, \sigma^2 \Im_n)
-	$$
-	and set $\x_1 = \x_k^\ell$;
+	\item Choose $\ell$ points around $\x_k$ including $\x_k$ itself (e.g., adding a zero-mean Gaussian noise term)
 	
-	\item we compute the data $\tv_i = \T_{f,k} \x_i$, $i = 1, \ldots, D$, for example $\tv_i = \x_i - \alpha \nabla f(\x_i; t_k)$;
+	\item Evaluate the operator on the data points: $\tv_i = \T_{k} \x_i$, $i\in I_{\ell}$, for example $\tv_i = \x_i - \alpha \nabla_{\x} f(\x_i; t_k)$;
 	
-	\item we solve the OpReg, and use the approximate operator at $\x_k^\ell$, that is $\tv_1$, in the chosen solver $\T_k$:
-	$$
-		\x_k^{\ell+1} = \prox_{\alpha g}(\tv_1)
-	$$
-	where $\alpha$ is a step-size.
+	\item Solve~\eqref{eq:operator-regression} with the PRS-based solver, and output $\hat{\tv}_k = \hat{\T}_k \x_k$ to be used in Step 3. of OpReg-Boost.
 \end{itemize}
+
+
+[Some closing words, no need for interpolation? ]
 
 
 %------------------------------------------------
 \subsection{Interpolated version}
 
+[Add here]
 
 
 
 
 %------------------------------------------------------------------------------
 \section{Numerical Results}\label{sec:numerical}
+
+Wish-list
+
+\begin{itemize}
+\item non-negative Least-squares
+
+\item L1 ? 
+
+\item Relative-entropy non-negative regression
+
+\item weakly convex: time-varying phase retrival? (see Convergence of a Stochastic Gradient Method with Momentum for Nonsmooth Nonconvex Optimization)
+
+\end{itemize}
+
+Compare (real-time, gradient/functional calls) with Nesterov, AA, CvxReg-Boost, OpReg-Boost, Gradient descent. Other? (Forward-backward envelope, superMann?)
+
+For the weakly convex one: See Convergence of a Stochastic Gradient Method with Momentum for Nonsmooth Nonconvex Optimization (momentum as described there?)
+
 
 
 %------------------------------------------------
@@ -487,12 +455,14 @@ with $n = 10$, $\Am$ matrix with maximum and minimum (non-zero) eigenvalues $\sq
 
 
 
+\newpage 
 
-\bibliography{references}
+\bibliography{PaperCollection00,references}
 \bibliographystyle{icml2021}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
 \appendix
 
 %------------------------------------------------------------------------------
