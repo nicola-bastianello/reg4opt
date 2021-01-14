@@ -8,6 +8,8 @@ Operator template and examples.
 import numpy as np
 from numpy import linalg as la
 
+from tvopt import sets
+
 
 #%% FUNCTION TEMPLATE
 
@@ -44,9 +46,10 @@ class Operator():
     rng : tvopt.sets.Set
         The operator's range.
     time : tvopt.sets.T
-        The time domain :math:`\mathbb{R}_+`. If the cost is static this is None.
+        The time domain :math:`\mathbb{R}_+`. If the operator is static this is
+        None.
     is_dynamic : bool
-        Attribute to check if the cost is static or dynamic.
+        Attribute to check if the operator is static or dynamic.
     """
     
     def __init__(self, dom, rng=None, time=None):
@@ -174,7 +177,7 @@ class Operator():
         Parameters
         ----------
         t : float
-            The time at which the cost should be sampled.
+            The time at which the operator should be sampled.
 
         Returns
         -------
@@ -201,6 +204,160 @@ class Operator():
             return ScaledOperator(self, c)
         else:
             raise TypeError("Can't multiply Operator by {}.".format(type(c)))
+
+
+# -------- SPECIAL OPERATORS
+
+class SeparableOperator(Operator):
+    r"""
+    Separable operator.
+
+    This class defines a separable operator, that is
+    
+    .. math:: \mathcal{T}(\pmb{x}; t) = \begin{bmatrix} \vdots \\ \mathcal{T}_i(x_i; t) \\ \vdots \end{bmatrix}
+    
+    where :math:`x_i \in \mathbb{R}^{n_1 \times n_2 \times \ldots}` for each
+    :math:`i = 1, \ldots, N`. Each of the component operators :math:`T_i` can
+    be either static or dynamic. This is useful for defining distributed
+    optimization problems.
+    
+    The overall dimension of the domain is 
+    :math:`n_1 \times n_2 \times \ldots \times N`, meaning that the last 
+    dimension indexes the components.
+    
+    The class exposes the same methods as any `Operator`, with the difference 
+    that the keyword argument `i` can be used to evaluate only a single component.
+    If all components are evaluated, an ndarray is returned with the last
+    dimension indexing the components.
+
+    The class has the `Operator` attributes, with the following additions.
+    
+    Attributes
+    ----------
+    ops : list
+        The component operators.
+    N : int
+        The number of components.
+    is_dynamic : bool
+        True if at least one component is dynamic.
+    """
+    
+    def __init__(self, ops):
+        """
+        Class constructor.
+
+        Parameters
+        ----------
+        ops : list
+            The component operators.
+        """
+        
+        # check if there are dynamic operators
+        times = [o.time for o in ops if o.is_dynamic]
+        time = times[0] if len(times) > 0 else None
+        
+        super().__init__(sets.R(*ops[0].dom.shape, len(ops)), sets.R(*ops[0].rng.shape, len(ops)), time)
+        self.ops, self.N = ops, len(ops)
+    
+    def operator(self, x, *args, i=None, **kwargs):
+        """
+        An evaluation of the separable operator.
+        
+        This method performs an evaluation of the component operators. If the 
+        keyword argument `i` is specified, then only the corresponding operator
+        is evaluated.
+
+        Parameters
+        ----------
+        x : array_like
+            The x where the operator(s) should be evaluated.
+        *args
+            The time at which the operator(s) should be evaluated. Not required
+            if they are static.
+        i : int, optional
+            If specified, only the corresponding component operator 
+            :math:`\mathcal{T}_i` is evaluated.
+        **kwargs
+            Any other required argument.
+
+        Returns
+        -------
+        ndarray
+            If `i` is specified, the evaluation of the i-th component, 
+            otherwise an ndarray stacking the components evaluations along
+            the last dimension.
+        """
+        
+        if i is not None:
+            return self.ops[i].operator(x, *args, **kwargs) if self.ops[i].is_dynamic \
+                   else self.ops[i].operator(x, **kwargs)
+        else:
+            return np.stack([o.operator(x[...,i], *args, **kwargs) if o.is_dynamic \
+                   else o.operator(x[...,i], **kwargs) for o, i in zip(self.ops, range(self.N))], axis=-1) 
+
+class DiscreteDynamicOperator(Operator):
+    r"""
+    Dynamic operator from a sequence of static ones.
+    
+    This class creates a dynamic operator from a list of static operators. That
+    is, given a sampling time :math:`T_\mathrm{s}`, the operator at time 
+    :math:`t_k = k T_\mathrm{s}` is:
+    
+    .. math:: \mathcal{T}(\pmb{x}; t_k) = \mathcal{T}_k(\pmb{x})
+    
+    with :math:`\mathcal{T}_k` the k-th static operator in the list.
+    """
+    
+    def __init__(self, ops, t_s=1):
+        """
+        Class constructor.
+        
+        Creates the dynamic operator, optionally using the specified sampling
+        time `t_s`.
+
+        Parameters
+        ----------
+        ops : list
+            The sequence of static operators.
+        t_s : float, optional
+            The sampling time, that is, the time that elapses between two
+            consecutive operators. The default is 1.
+        
+        Notes
+        -----
+        The operators are implicitly assumed to have the same domain and to be 
+        static.
+        """
+        
+        # create time domain
+        time = sets.T(t_s, t_min=0, t_max=len(ops)*t_s)
+        
+        super().__init__(ops[0].dom, ops[0].rng, time)
+        self.ops, self.N = ops, len(ops)
+    
+    def operator(self, x, t, **kwargs):
+        
+        return self.ops[self.time.check_input(t)].operator(x, **kwargs)
+
+    def sample(self, t):
+        """
+        Sample the operator.
+        
+        The difference with the default `Operator` method is that it returns an
+        operator in the list rather than a `SampledOperator`.
+
+        Parameters
+        ----------
+        t : float
+            The time at which the operator should be sampled.
+
+        Returns
+        -------
+        Operator
+            The closest operator in the list.
+        """
+        
+        return self.ops[self.time.check_input(t)]
     
 
 # -------- AUXILIARY CLASSES
