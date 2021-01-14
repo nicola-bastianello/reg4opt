@@ -21,12 +21,17 @@
 \usepackage{bm,fixmath}
 
 
+
+
 %-------------------- COMMANDS
 \DeclareMathOperator*{\argmin}{arg\,min}
 \DeclareMathOperator*{\minimize}{minimize}
 \DeclareMathOperator{\prox}{prox}
 \DeclareMathOperator{\fix}{fix}
+\DeclareMathOperator{\proj}{proj}
 
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{remark}[theorem]{Remark}
 
 \newcommand{\norm}[1]{\left\lVert#1\right\rVert}
 
@@ -46,17 +51,18 @@
 \newcommand{\vv}{\mathbold{v}}
 \newcommand{\z}{\mathbold{z}}
 \newcommand{\xx}{\pmb{\xi}}
-
+\newcommand{\ball}[2]{\mathbb{B}_{#2}(#1)}
 \newcommand{\Am}{\mathbold{A}}
 \renewcommand{\Im}{\mathbold{I}}
 \newcommand{\Pm}{\mathbold{P}}
-
+\newcommand{\cv}{\mathbold{c}}
 \newcommand{\I}{\mathcal{I}}
 \newcommand{\T}{\mathcal{T}}
 
 \newcommand{\Ts}{T_\mathrm{s}}
 
 \newcommand{\nicola}[1]{{\color{blue}#1}}
+\newcommand{\andrea}[1]{{\color{red}[#1]}}
 
 
 % Use the following line for the initial blind version submitted for review:
@@ -121,21 +127,22 @@
 %\printAffiliationsAndNotice{\icmlEqualContribution} % otherwise use the standard text.
 
 \begin{abstract}
-We present OpReg-Boost, a novel acceleration scheme to boost the convergence properties and lessen the asymptotical error of online algorithms for time-varying (weakly) convex optimization problems. OpReg-Boost is built to learn the closest algorithm to a given online algorithm that has all the algorithmic properties one needs for fast convergence, and it is based on the concept of operator regression. We show how to build OpReg-Boost by using a Peaceman-Rachford solver, and further boost [... interpolation-MAP..]. Simulation results showcase the [better/increase/..] properties of OpReg-Boost w.r.t. the more classical [...], and its close relative convex-regression-boost which is also novel but significantly less performing.  
+We present OpReg-Boost, a novel acceleration scheme to boost the convergence properties and lessen the asymptotical error of online algorithms for time-varying (weakly) convex optimization problems. OpReg-Boost is built to learn the closest algorithm to a given online algorithm that has all the algorithmic properties one needs for fast convergence, and it is based on the concept of operator regression. We show how to compute OpReg-Boost by using a Peaceman-Rachford solver, and further trade-off computations and accuracy with an interpolation-based technique based on alternating projection. Simulation results showcase the \andrea{better/increase/..} properties of OpReg-Boost w.r.t. the more classical \andrea{...}, and its close relative convex-regression-boost (CvxReg-Boost) which is also novel but significantly less performing.  
 \end{abstract}
 
 
 %------------------------------------------------------------------------------
 \section{Introduction}\label{sec:introduction}
 
-[Add others' papers, esp. ML community]
+\andrea{Add others' papers, esp. ML community}
 
+\andrea{Notation to iron}
 
 In recent years, we have witnessed the growing interest in time-varying optimization problems, where the cost function, constraints, or both are parametrized over data streams, and therefore are changing over time~\cite{Jadbabaie2015, SPM}. Notable applications for the machine learning community are subspace tracking for video streaming and online sparse subspace clustering, see~\cite{Asif2014, Akhriev2020, SPM} and references therein. 
 
-Solving time-varying optimization problems with online algorithms amounts to find and track continuously changing optimizers. If we let the optimizers trajectory be defined as $\x^*(t)$, a significant results for online algorithms in this context is that if the \emph{path-length} $\sum_{k=1}^T \|\x^*(t_{k+1}) - \x^*(t_{k})\|$, for subsequent time instances $t_{k+1}, t_k$, is not sub-linear in $T$, then online algorithms will have an asymptotical error $O(1)$~\cite{Besbes2013, Jadbabaie2015, SPM, NaLi2020} (or $O(T)$ in terms of pertinent notions of regret)\footnote{
+Solving time-varying optimization problems with online algorithms amounts to find and track continuously changing optimizers $\x^*(t)$ and optimal values $F^*(t)$. A significant results for discrete-time online algorithms, that sample and solve sequences of time-varying problems at discrete time-instances $t_k$, $k \in N$, is that if the variations of the problem in time are not vanishing, then online algorithms will have an asymptotical error in terms of optimality, depending on those variations~\cite{Besbes2013, Jadbabaie2015, SPM, NaLi2020}\footnote{
 %%% Footnote Jadbabaie:
-In~\cite{Jadbabaie2015} and subsequent works, [Finish]
+In~\cite{Jadbabaie2015} and subsequent works, these asymptotical error is formulated in terms of a pertinent notion of regret, and the variations in terms of path-length and functional variability.
 %%%
 }. While errors can be made small, for instance with the use of prediction-correction algorithms~\cite{Dontchev2013, simonetto_time-varying_2020}, the existence of an asymptotical error remains a distinctive feature of online algorithms for time-varying optimization. 
 
@@ -145,7 +152,7 @@ By building on this field-defining fact, once can ask what is the best regulariz
 
 {\bf (Q1) } \emph{what is the closest problem to a given time-varying problem that has all the functional properties we need for fast convergence?}
 
-This gives rise to convex-regression-based boosting. 
+This gives rise to convex-regression-based boosting, or CvxReg-Boost. 
  
 To fix the ideas in a static setting, let us consider Figure~\ref{fig.1}, where we have depicted a non-convex function $f$, which we can evaluate at specific points (grey dot). The idea behind Q1 and convex-regression-based boosting is then to interpret the functional evaluation as noisy measurements of an underlying true convex function $\hat{f}$, which we want to learn. As long as $f$ and $\hat{f}$ are not dramatically different, the reasoning is that solving the problem of minimizing $\hat{f}$ instead of $f$ will then give us a boost in term of convergence rate and asymptotical error in online algorithm, despite the fact that $f$ and $\hat{f}$ are different. In addition, and for free, since we have some liberty in designing the functional properties of $\hat{f}$ (e.g., Lipschitz constant, strong convexity constant, etc.), we can thoroughly optimize the parameter of the online algorithm, e.g., its stepsize, further boosting convergence.  
 
@@ -170,14 +177,16 @@ In this paper, we offer the following contributions,
 \begin{enumerate}
 \item We present two novel regression methods to \emph{learn-project-and-solve} time-varying optimization problems that are not necessarily convex. The methods are based on convex regression and operator regression, and -- especially the latter -- is promising in boosting convergence without introducing a larger asymptotical error. 
 %%
-\item We present efficient ways to solve the operation regression problem via a pertinent reformulation of the Peaceman-Rachford splitting method. [.. more ]
+\item We present efficient ways to solve the regression problems via a pertinent reformulation of the Peaceman-Rachford splitting (PRS) method. Our PRS method is trivially parallel and allows for a reduction of the per iteration complexity from $O()$ to $O()$, where \andrea{put in the numbers}.  
 %%
-\item We [Interpolation]
+\item We show how to make use of an 1945 interpolation technique to trade-off accuracy and speed in operation regression, by interpolating the learned operator outside the data points via alternating projections. 
 %%
-\item We showcase the [simulation results]
+\item We showcase the \andrea{simulation results}
 \end{enumerate}
 
 \subsection{Literature review}
+
+\andrea{add ML work}
 
 Time-varying optimization and online algorithms are extensively covered in~\cite{SPM, simonetto_time-varying_2020} and references therein, while a more machine learning approach is offered in~\cite{Jadbabaie2015} and subsequent work. The notion that regularizations help convergence possibly without introducing extra asymptotical error is presented in the papers~\cite{Simonetto2014d, Bastianello2020asi}. While we refer to~\cite{Devolder2011,Nedic2011} for seminal papers close in spirit in the static domain. 
 
@@ -187,7 +196,7 @@ Convex regression is treated extensively in~\cite{Seijo2011,Lim2012,Mazumder2019
 
 Operator regression is a recent and at the same time old topic. We are going to build on the recent work~\cite{ryu_operator_2020} and the F.A. Valentine's 1945 paper~\cite{valentine_lipschitz_1945}.
 
-The acceleration schemes that we compare with are [Tell and cite] e.g., AA: \cite{pmlr-v119-mai20a}
+The acceleration schemes that we compare with are \andrea{Tell and cite, e.g., AA: \cite{pmlr-v119-mai20a}}
 
 \subsection{Notation}
 
@@ -195,20 +204,24 @@ Notation is wherever possible standard. We use the concept of $\mu$-weakly conve
 
 An operator $\T: \R^n \to \R^n$ is said to be non-expansive iff $\|T \x - T \y \| \leq \|\x- \y\|$, for all $\x, \y \in \R^n$, whereas it is $\zeta$-contractive, $\zeta\in(0,1)$, iff $\|T \x - T \y \| \leq \zeta \|\x- \y\|$, for all $\x, \y \in \R^n$.
 
-The prox operator [..]
+We indicate with $\prox_{\alpha g}(\cdot)$ the proximal operator of function $g$, and with $\proj_{C}(\cdot)$, the projection operator onto the set $C$. 
 
 
 \section{Problem Formulation}
 
 We are interested in solving the following time-varying optimization problem,
 \begin{equation}\label{eq:continuous-time-problem}
-	\x^*(t) \in \argmin_{\x} f(\x; t) + g(\x; t)
+	\x^*(t) \in \argmin_{\x} f(\x; t) + g(\x; t) =: F(\x; t)
 \end{equation}
 where $f : \R^n \times \R_+ \to \R$ is closed, proper, and $\mu$-weakly convex, whereas $g : \R^n \times \R_+ \to \R \cup \{ +\infty \}$ is closed, convex and proper function, optionally with $g \equiv 0$. Upon sampling the problem at discrete time instances $t_k$, we then obtain the sequence of time-invariant problems,
 \begin{equation}\label{eq:base-problem}
 	\x^*(t_k) \in \argmin_{\x} f(\x; t_k) + g(\x; t_k), \qquad k \in \N. 
 \end{equation}
-Our overarching goal is to set up an online algorithm $\mathcal{A}$ that generate a sequence of approximate optimizers $\{\x_k\}_{k\in \N}$, such that the asymptotical tracking error 
+Our overarching goal is to set up an online algorithm of the forward-backward type,
+\begin{equation}
+\x_{k+1} = \prox_{\alpha g(\cdot, t_k)} (\x_k - \alpha \nabla_{\x} f(\x_k; t_k)), \quad k \in \N,
+\end{equation}
+that generate a sequence of approximate optimizers $\{\x_k\}_{k\in \N}$, such that the asymptotical tracking error \andrea{
 \begin{equation}
 \limsup_{k \to \infty} \|\x_k - \x^*(t_k)\|,
 \end{equation}
@@ -221,11 +234,22 @@ which in turn guarantees that the path-length grows linearly in time,
 \sum_{k\in \N} \|\x^*(t_{k+1}) - \x^*(t_k)\| \leq \Delta k.
 \end{equation}
 
-The first important and known result here is that if function $f$ is in $\mathcal{S}_{m,L}(\R^n)$ uniformly in $k$, then an online algorithm $A$ (here a forward-backward algorithm) can obtain linear convergence to the asymptotical error bound $\Delta/(1-\gamma)$, with optimal $\gamma = \frac{L-m}{L+m}$; much weaker results hold for the general convex case~\cite{Simonetto20XX}, for example [..]
+Here should we formulate it in terms of functional $|f - f^*|$ instead? Let's discuss.
 
-The second important result is that even a simple Tikhonov regularization $+ \frac{w}{2} \|x\|^2_2$, transforming a smooth but not strongly convex case into a strongly convex one allows for a boost in convergence and [..]
+Somewhere we have to say that forward-backward may not converge in general, while here we ensure convergence since we are convex. This is an important point
 
-%% say something more, change?
+}
+
+\andrea{Explain a bit better what we mean by online-- I think we could be clearer?? Or maybe in the introduction.}
+
+\andrea{Is $f$ differentiable, does it have to be?}
+
+
+The first important and known result here is that if function $f$ is in $\mathcal{S}_{m,L}(\R^n)$ uniformly in $k$, then an online forward-backward algorithm can obtain linear convergence to the asymptotical error bound $\limsup_{k\to\infty}\|\x_k - \x^*(t_k)\| \leq \gamma\Delta/(1-\gamma)$, with optimal $\gamma = \frac{L-m}{L+m}$; much weaker results hold for the general convex case~\cite{Simonetto20XX}.
+
+The second important result is that even a simple Tikhonov regularization $+ \frac{w}{2} \|x\|^2_2$, transforming the above $f \in \mathcal{S}_{m,L}(\R^n)$ to $f' \in \mathcal{S}_{m',L'}(\R^n)$ with a better $\gamma'<\gamma$, could allow for a boost in convergence and reducing the asymptotical error. In fact, if the optimizers of the true function $F = f+g$ and regularized function $F' = f'+g$ are never farther apart than $e_{\x}$, then the asymptotical error for an algorithm on $F'$ is $\gamma'\Delta'/(1-\gamma') + e_{\x}$, which can be less than the original $\gamma\Delta/(1-\gamma)$.   
+
+\andrea{say something more, change above -- these are worst case bounds..?}
 
 With this in place, our two main research questions are
 \begin{itemize}
@@ -235,17 +259,20 @@ With this in place, our two main research questions are
 
 \end{itemize}
 
+In the following, we will explore both Q1 and Q2, with a special emphasis on Q2, since it provides better results in simulations. 
+
 \section{Q1. Convex Regression}
 
-We briefly introduce here the concept of convex regression, while we leave the main technical details to~\cite{Mazumder2019,simonetto_smooth_2021}. Suppose one has collected $\ell$ noisy measurements of a convex function $\varphi(\x): \R^n \to \R$ (say $y_i$) at points $\x_i \in \R^n$, $i \in I_{\ell}$. Then convex regression is a least-squares approach to estimate the generating function based on the measurements. Formally, letting $\varphi \in \mathcal{S}_{m,L}(\R^n)$, then one would like to solve the infinite-dimensional problem, 
+We briefly introduce here the concept of convex regression, while we leave the main technical details to~\cite{Mazumder2019,simonetto_smooth_2021}. Suppose one has collected $\ell$ noisy measurements of a convex function $\varphi(\x): \R^n \to \R$ (say $y_i$) at points $\x_i \in \R^n$, $i \in I_{\ell}$, and (optionally) its gradients $\nabla_{\x} \varphi(\x_i)$. Then convex regression is a least-squares approach to estimate the generating function based on the measurements. Formally, letting $\varphi \in \mathcal{S}_{m,L}(\R^n)$, then one would like to solve the infinite-dimensional problem, 
 \begin{equation}\label{eq.inf}
-\hat{\varphi}_{\ell} \in \argmin_{\psi \in \mathcal{S}_{m, L}(\R^n)}\Big\{ \sum_{i\in I_{\ell}} (y_i - \psi(\x_i))^2 \Big\} \,.
+\hat{\varphi}_{\ell} \in \argmin_{\psi \in \mathcal{S}_{m, L}(\R^n)}\Big\{ \sum_{i\in I_{\ell}} (y_i - \psi(\x_i))^2 + \|\z_i - \nabla_{\x} \psi(\x_i)\|^2 \Big\} \,,
 \end{equation}
+where $y_i$ and $\z_i$ are the measurements of the function and the gradients at the data points. 
 
 The problem can be then equivalently decomposed into an estimation on the data points, to find the true function values and gradients at the data point ($\f = [\varphi_i]_{i \in I_{\ell}}$, $\bdelta = [\nabla \varphi_i]_{i \in I_{\ell}}$) which turns out to be a convex quadratically constrained quadratic program, 
 \begin{subequations}\label{socp}
 \begin{eqnarray}
-(\f^*, \bdelta^*) &&= \argmin_{\f\in\R^\ell\!,~ \bdelta \in\R^{n\ell}} \sum_{i\in I_{\ell}} (y_i - \varphi_i)^2 \\
+(\f^*, \bdelta^*) &&\hskip-.5cm= \argmin_{\f\in\R^\ell\!,~ \bdelta \in\R^{n\ell}} \sum_{i\in I_{\ell}} (y_i - \varphi_i)^2 + \|\z_i - \bdelta_i \|^2 \\
 \mathrm{s.t.:} &&
 \varphi_i - \varphi_j - \bdelta_j^\transp (\x_i - \x_j) \geq \\ && \hskip-5mm \frac{1}{2(1 - m/L)}\left(\frac{1}{L}\|\bdelta_i - \bdelta_j \|^2_2 + m \|\x_i - \x_j\|_2^2 \right. \nonumber \\ && \hskip-5mm \left. - 2 \frac{m}{L} (\bdelta_j-\bdelta_i)^\transp (\x_j - \x_i) \right), \quad \forall i, j \in I_{\ell}. \nonumber
 \end{eqnarray} 
@@ -261,7 +288,14 @@ p_i(\x) := \frac{L-m}{2} \| {\x} - \x_i\|_2^2 + (\bdelta_i^*-m \x_i)^\transp \x 
 \end{multline}
 and where $\mathrm{conv}(\cdot)$ indicates the convex hull.  
 
-Then, to solve Q1, one could consider a number of evaluations of the function $f(\x; t_k)$ as noisy measurements of an underlying convex function $\varphi_k \in \mathcal{S}_{m,L}(\R^n)$ and using the least-squares approach above to \emph{project} function $f(\cdot; t_k)$ onto the space of ``good'' functions [Complete.. put the details in the appendix]
+Then, to solve Q1, one could consider, for each time $t_k$, a number of evaluations of the function $f(\x; t_k)$ (and optionally its gradients) as noisy measurements of an underlying convex function $\hat{f}_k \in \mathcal{S}_{m,L}(\R^n)$ and using the least-squares approach above to \emph{project} function $f(\cdot; t_k)$ onto the space of ``good'' functions $\mathcal{S}_{m,L}(\R^n)$. Then, one can use the estimated function $\hat{f}_k$ and its estimated gradients to perform a step of the algorithm. 
+
+We include in the appendix all the technical details of such CvxReg-Boost algorithm, while we focus now on solving Q2 via operator regression, which is ultimately better performing. 
+
+\andrea{I think it's not super clear-- Add the algorithm here and the explanation of the compl. complexity and other in the appendix ? }
+
+
+
 
 
 %------------------------------------------------------------------------------
@@ -271,7 +305,7 @@ A slightly different approach to convex regression is to look at the algorithm d
 \begin{equation}
 \x_{k+1} = \x_k - \alpha \nabla_{\x} f(\x_k; t_k) \equiv \underbrace{(I - \alpha \nabla_{x}f_k)}_{=:\T_k} (\x_k)
 \end{equation}
-where $\T_k: \R^n \to \R^n$ is the gradient algorithm operator. Interpreting algorithms as operators (possibly averaged, monotone, etc.) has been extremely fruitful for characterizing their convergence properties~\cite{Rockafellar1976, Eckstein1989, bauschke_convex_2017,Ryu2015,tom-also}.
+where $\T_k: \R^n \to \R^n$ is the gradient algorithm operator. Interpreting algorithms as operators (possibly averaged, monotone, etc.) has been extremely fruitful for characterizing their convergence properties~\cite{Rockafellar1976, Eckstein1989, bauschke_convex_2017,Ryu2015,Sherson2018}.
 
 The counterpart of a smooth strongly convex function $\varphi_k$ in convex regression, is an operator that is contracting, i.e., $\|\T_k \x - \T_k \y\| \leq \zeta \|\x - \y\|$ for all $\x, \y \in \R^n$ and $\zeta \in (0,1)$. In fact, while $L$-smooth $m$-strongly convex functions give rise to gradient operators that are $..$-contracting, the space of contracting operators is larger (i.e., a function $f$ that is not strongly convex could in principle give rise to a contracting operator~\cite{linear}). 
 
@@ -291,13 +325,34 @@ Therefore, we can define the following convex quadratically constrained quadrati
 	&\text{s.t.} \ \norm{\tv_i - \tv_j}^2 \leq \zeta^2 \norm{\x_i - \x_j}^2 \ \forall i,j \in I_{\ell}, i \neq j,
 \end{split}
 \end{equation}
-where again the cost function is a least square terms on the ``observations''' and the constraints enforce contractiveness. In particular, the optimal values $\hat{\tv}$ on the data points represent the evaluations of a $\zeta$-contracting operator when applied to those points. 
+where again the cost function is a least square terms on the ``observations''' and the constraints enforce contractiveness. In particular, the optimal values $\hat{\tv}$ on the data points represent the evaluations of a $\zeta$-contracting operator when applied to those points, i.e., $\hat{\tv}_i = \hat{\T}_k\x_i$.  
 
-To extend [interpolation here]
+To extend the operator outside the data points in the whole space, we can use a 1945 results, and namely the Corollary to Theorem~5 of \cite{valentine_lipschitz_1945}. In particular, we are interested in interpolating a Lipschitz continuous operator (that is, non-expansive or contractive) from a set of evaluations. The data are the pairs $\{ (\x_i, \hat{\tv}_i) \}_{i \in I_{\ell}}$.
 
-%% Then Interpolation here.. 
+By the Corollary to Theorem~5 of \cite{valentine_lipschitz_1945}, we know that a $\zeta$-Lipschitz continuous map $\hat{\T}_k$ can be extended (that is, interpolated) in a new point $\x$, while preserving Lipschitz continuity $\zeta$, by the construction:
+\begin{equation}\label{eq:interpolation}
+	\hat{\T}_k \x = \begin{cases}
+		\hat{\tv}_i & \text{if} \ \x = \x_i \\
+		\hat{\tv} \in \bigcap_{i \in I_{\ell}} \ball{\hat{\tv}_i}{\zeta \norm{\x - \x_i}} & \text{otherwise}
+	\end{cases}
+\end{equation}
+where $\ball{\cv}{r} \subset \R^n$ denotes a ball of center $\cv$ and radius $r$. That is, we can interpolate $\hat{\T}_k$ in a new point $\x$ by finding a point in the intersection of the balls centered in $\hat{\tv}_i$ with radius $\zeta \norm{\x - \x_i}$, $i = 1, \ldots, \ell$. Notice that the intersection $\bigcap_{i \in I_{\ell}} \ball{\hat{\tv}_i}{\zeta \norm{\x - \x_i}}$ is guaranteed to be non-empty by Theorem~1 of \cite{valentine_lipschitz_1945}.
+
+By definition $\hat{\tv}$ satisfies
+\begin{equation}
+	\norm{\hat{\tv} - \hat{\tv_i}} \leq \zeta \norm{\x - \x_i}, \quad \forall i \in I_{\ell},
+\end{equation}
+which implies that Lipschitz continuity (and contractivity) is preserved.
+
+\andrea{What happens to $\|\tv' - \tv''\|$ for $\x'$ and $\x''$ both interpolated? }
+
+
+Interpolating a Lipschitz continuous operator requires therefore finding a point in the intersection of $\ell$ ball sets. In the Appendix [..], we show how to efficiently compute this intersection with the method of alternating projections~\cite{reich_projection_2015}.
+
 
 \subsection{Optional auto-tuning }
+
+\andrea{Appendix?}
 
 Discretionarily, we can also modify~\eqref{eq:operator-regression} by including $w = \zeta^2$ as an unknown of the regression problem with a penalty $c>0$, which then becomes
 \begin{equation}
@@ -310,7 +365,58 @@ this way the contraction constant does not need to be specified, and it is \emph
 
 \subsection{PRS-based solver}
 
-[Add here]
+The solution of the convex problem~\eqref{eq:operator-regression} can be obtained by off-the-shelf solvers, but generally the computational complexity can be a limiting factor, since the problem has a number of constraints that scales quadratically with the number of data points $\ell$. In particular, the computational complexity of interior-point methods would scale as $O()$. This is generally the case in non-parametric regression~\cite{.}. 
+
+Here, we propose a trivially parallel tailored-made algorithm that solves~\eqref{eq:operator-regression} more efficiently (formally .. [..]) based on Peaceman-Rachford splitting (PRS).   
+
+The idea is as follows: each pair of data points $i, j \in I_{\ell}$, $i \neq j$, gives rise to one constraint, for a total of $\ell(\ell-1)/2$ constraints. We define the following set of pairs
+\begin{equation}
+	\mathcal{V} = \left\{ e = (i,j) \ | \ i, j \in I_{\ell}, \ i < j \right\}
+\end{equation}
+which are ordered (that is, for example we take $(1,2)$ and not $(2,1)$, to avoid counting constraints twice). To each pair $e = (i,j)$ corresponds the constraint $\norm{\tv_i - \tv_j}^2 \leq \zeta^2 \norm{\x_i - \x_j}^2$.
+
+Let $\tv_{i,e}$ and $\tv_{j,e}$ be copies of $\tv_i$ and $\tv_j$ associated to the $e$-th constraint; then we can equivalently reformulate Problem~\eqref{eq:operator-regression} as
+\begin{subequations}\label{eq:equivalent-problem}
+\begin{align}
+	&\min_{\tv_{i,e}, \tv_{j,e}} \frac{1}{2 (\ell-1)} \sum_{e \in \mathcal{V}} \norm{\begin{bmatrix} \tv_{i,e} \\ \tv_{j,e} \end{bmatrix} - \begin{bmatrix} \y_i \\ \y_j \end{bmatrix}}^2 \\
+	&\text{s.t.} \ \norm{\tv_{i,e} - \tv_{j,e}}^2 \leq \zeta^2 \norm{\x_i - \x_j}^2 \label{eq:interpolation-constraints} \\
+	&\qquad \tv_{i,e} = \tv_{i,e'} \ \forall e, e' | i \sim e, e'. \label{eq:consensus-constraints}
+\end{align}
+\end{subequations}
+Problem~\eqref{eq:equivalent-problem} is a strongly convex problem with convex constraints defined in the variables $\tv_{i,e}$.
+
+Let $\xx$ be the vector stacking all the $\tv_{i,e}$, then the problem is equivalent to
+\begin{align*}
+	\min_{\xx} \psi(\xx) + \chi(\xx)
+\end{align*}
+where
+$$
+	\psi(\xx) = \frac{1}{2(\ell-1)} \norm{\xx - \y}^2 + \psi_1(\xx)
+$$
+with $\psi_1$ the indicator function imposing~\eqref{eq:interpolation-constraints} and $\xi$ the indicator function imposing the ``consensus'' constraints~\eqref{eq:consensus-constraints}. The problem can then be solved using the Peaceman-Rachford splitting (PRS) characterized by the following updates $\ell \in \mathbb{N}$:
+\begin{subequations}
+\begin{align}
+	&\xx^j = \prox_{\rho \psi}(\z^j) \label{eq:prs-xi} \\
+	&\vv^j = \prox_{\rho \chi}(2 \xx^j - \z^j) \\
+	&\z^{j+1} = \z^j + \vv^j - \xx^j.
+\end{align}
+\end{subequations}
+The proximal of $\chi$ corresponds to the projection onto the consensus space, and thus can be characterized simply by
+$$
+	\vv_{i,e}^j = \frac{1}{\ell-1} \sum_{e' | i \sim e'} \left( 2 \tv_{i,e'}^j - \z_{e'}^j\right).
+$$
+Regarding the proximal of $\psi$, $\psi$ is separable, in the sense that it can be written as
+$$
+	\psi(\xx) = \sum_{e \in \mathcal{V}} \left[ \frac{1}{2 (\ell-1)} \norm{\begin{bmatrix} \tv_{i,e} \\ \tv_{j,e} \end{bmatrix} - \begin{bmatrix} \y_i \\ \y_j \end{bmatrix}}^2 + \iota_{e}(\tv_{i,e},\tv_{j,e}) \right]
+$$
+where $\iota_{e}$ denotes the indicator function of~\eqref{eq:interpolation-constraints} \andrea{is it $\psi_1$?}. Therefore, the update~\eqref{eq:prs-xi} can be solved by solving (possibly in parallel) the problems
+\begin{equation}\label{eq:local-updates}
+\begin{split}
+	(\tv_{i,e},\tv_{j,e}) &= \argmin_{\tv_{i,e},\tv_{j,e}} \left\{ \frac{1}{2 (\ell-1)} \norm{\begin{bmatrix} \tv_{i,e} \\ \tv_{j,e} \end{bmatrix} - \begin{bmatrix} \y_i \\ \y_j \end{bmatrix}}^2 + \right.\\ & \left.\qquad \frac{1}{2\rho} \norm{\begin{bmatrix} \tv_{i,e} \\ \tv_{j,e} \end{bmatrix} - \z_e^j}^2 \right\}\\
+	&\text{s.t.} \quad \norm{\tv_{i,e} - \tv_{j,e}}^2 \leq \zeta^2 \norm{\x_i - \x_j}^2.
+\end{split}
+\end{equation}
+Problems~\eqref{eq:local-updates} are convex QCQP with one constraint, and can be solved in the dual domain as scalar problems by using Newton's method~\cite{.}, yielding a total computational complexity of $O(..)$ for the solution of~\eqref{.}.
 
 %------------------------------------------------------------------------------
 \section{OpReg-Boost}\label{sec:online-opreg}
@@ -323,33 +429,77 @@ Having to deal with composite problems $f(\cdot; t_k) + g(\cdot; t_k)$, we focus
 \end{equation}
 We let $\T_k = I - \alpha \nabla_{\x} f_k$ be the operator we want to regularize. Since $f$ is not smooth strongly convex in general, $\T_k$ is not contractive (in general). However, since $g_k$ is convex, the prox operator is non-expansive, so that if $\T_k$ were to be contractive then the forward-backward algorithm would be contracting itself and we could have better convergence guarantees. 
 
-Therefore, we are interested in learning a contracting $\hat{\T}_k$ by evaluations of $\T_k$. The OpReg-Boost algorithm can be described as follows: at each time $t_k$ do:
+Therefore, we are interested in learning a contracting $\hat{\T}_k$ by evaluations of $\T_k$. The OpReg-Boost algorithm can be described as follows. 
+
+\smallskip
+\smallskip
+\hrule
+{\bf OpReg-Boost algorithm}
+\smallskip
+\hrule
+{\bf Required:} number of points $\ell$, stepsize $\alpha$, contraction factor $\zeta$, initial condition $\x_0$.
+
+At each time $t_k$ do:
 \begin{enumerate}
 	\item Sample a new problem, that is, observe $f(\x; t_k)$ and $g(\x; t_k)$;
-
-	\item Learn the closest contracting operator to $\T_{k}$, say $\hat{\T}_k$ and
-	
-	\item Apply $\x_{k+1} = \prox_{g_k} (\hat{\T}_k \x_k)$.
-\end{enumerate}
-The learning step is performed using the (novel) constrained operator regression described in~\eqref{.}, specifically:
-
-\begin{itemize}
-	\item Choose $\ell$ points around $\x_k$ including $\x_k$ itself (e.g., adding a zero-mean Gaussian noise term)
-	
-	\item Evaluate the operator on the data points: $\tv_i = \T_{k} \x_i$, $i\in I_{\ell}$, for example $\tv_i = \x_i - \alpha \nabla_{\x} f(\x_i; t_k)$;
-	
-	\item Solve~\eqref{eq:operator-regression} with the PRS-based solver, and output $\hat{\tv}_k = \hat{\T}_k \x_k$ to be used in Step 3. of OpReg-Boost.
+	\item Learn the closest contracting operator to $\T_{k}$, say $\hat{\T}_k$ by:
+	%%
+	\begin{itemize}
+		\item Choose $\ell$ points around $\x_k$ including $\x_k$ itself (e.g., adding a zero-mean Gaussian noise term)
+		\item Evaluate the operator on the data points: $\tv_i = \T_{k} \x_i$, $i\in I_{\ell}$, i.e., $\tv_i = \x_i - \alpha \nabla_{\x} f(\x_i; t_k)$;
+		\item Solve~\eqref{eq:operator-regression} with the PRS-based solver, and output $\hat{\tv}_k = \hat{\T}_k \x_k$,
 \end{itemize}
+	%%
+	\item Apply $\x_{k+1} = \prox_{g_k} (\hat{\T}_k \x_k) = \prox_{g_k} (\hat{\tv}_k) $.
+\end{enumerate}
+\smallskip
+\hrule
 
+A couple of words are now in order. First, the computational complexity of the algorithm is dominated by the operation regression problem~\eqref{eq:operator-regression}, while its number of gradient calls is $\ell$-times the ones of a standard forward-backward algorithm.  At each time $t_k$, we perform $\ell$ gradient evaluations. We remark that $\ell$ can be as small as $5$ in practice. 
 
-[Some closing words, no need for interpolation? ]
+Second, as one can see from step 3., there is no need for solving the interpolation problem~\eqref{eq:interpolation}, since the operation regression problem~\eqref{eq:operator-regression} already provides the evaluation of the regularized operator at the data point $\x_k$. 
+
+In an attempt to reduce gradient calls, we present next an interpolated version of OpReg-Boost. 
 
 
 %------------------------------------------------
 \subsection{Interpolated version}
 
-[Add here]
+\andrea{Add intro}
 
+
+\smallskip
+\smallskip
+\hrule
+{\bf OpReg-Boost with interpolation algorithm}
+\smallskip
+\hrule
+{\bf Required:} number of points $\ell$, stepsize $\alpha$, initial condition $\x_0$, interpolation steps $\tau$.
+
+At each time $t_k$ do:
+\begin{enumerate}
+	\item Sample a new problem, that is, observe $f(\x; t_k)$ and $g(\x; t_k)$;
+	\item {\bf IF} $k \,\textrm{mod}\, \tau = 0$ then, 
+	\begin{enumerate}
+	\item Learn the closest contracting operator to $\T_{k}$, say $\hat{\T}_k$ by:
+	%%
+	\begin{itemize}
+		\item Choose $\ell$ points around $\x_k$ including $\x_k$ itself (e.g., adding a zero-mean Gaussian noise term)
+		\item Evaluate the operator on the data points: $\tv_i = \T_{k} \x_i$, $i\in I_{\ell}$, i.e., $\tv_i = \x_i - \alpha \nabla_{\x} f(\x_i; t_k)$;
+		\item Solve~\eqref{eq:operator-regression} with the PRS-based solver, and output $\hat{\tv}_k = \hat{\T}_k \x_k$,
+\end{itemize}
+\end{enumerate}
+	{\bf ELSE},
+	\begin{enumerate}
+	\item Interpolate last available $\hat{\T}_t$ for $\tv_k = \x_k - \alpha \nabla_{\x} f(\x_k; t_k)$ by using~\eqref{eq:interpolation} with the method of alternating projections and output $\hat{\tv}_k$ 
+\end{enumerate}
+	%%
+	\item Apply $\x_{k+1} = \prox_{g_k} (\hat{\tv}_k) $.
+\end{enumerate}
+\smallskip
+\hrule
+
+\andrea{add explanation and closure.}
 
 
 
@@ -466,58 +616,17 @@ with $n = 10$, $\Am$ matrix with maximum and minimum (non-zero) eigenvalues $\sq
 \appendix
 
 %------------------------------------------------------------------------------
+\section{CvxReg-Boost}
+
+\andrea{[Write here cvx reg boost.. and algorithm.]}
+
+
+
+%------------------------------------------------------------------------------
 \section{PRS-Based QCQP solver}
 In this section we present a solver for OpReg which can be efficiently parallelized, inspired by the approach in \cite{simonetto_smooth_2021}.
 
-The idea is as follows: each pair of data points $i, j \in [D]$, $i \neq j$, gives rise to one constraint, for a total of $D(D-1)/2$ constraints. We define the following set of pairs
-$$
-	\mathcal{V} = \left\{ e = (i,j) \ | \ i, j \in [D], \ i < j \right\}
-$$
-which are ordered (that is, for example we take $(1,2)$ and not $(2,1)$, to avoid counting constraints twice). Clearly to each pair $e = (i,j)$ corresponds the constraint $\norm{\tv_i - \tv_j}^2 \leq \zeta^2 \norm{\x_i - \x_j}^2$.
-
-Let now $\tv_{i,e}$ and $\tv_{j,e}$ be copies of $\tv_i$ and $\tv_j$ associated to the $e$-th constraint; then we can equivalently reformulate the OpReg~\eqref{eq:operator-regression} as
-\begin{subequations}\label{eq:equivalent-problem}
-\begin{align}
-	&\min_{\tv_{i,e}, \tv_{j,e}} \frac{1}{2 (D-1)} \sum_{e \in \mathcal{V}} \norm{\begin{bmatrix} \tv_{i,e} \\ \tv_{j,e} \end{bmatrix} - \begin{bmatrix} \y_i \\ \y_j \end{bmatrix}}^2 \\
-	&\text{s.t.} \ \norm{\tv_{i,e} - \tv_{j,e}}^2 \leq \zeta^2 \norm{\x_i - \x_j}^2 \label{eq:interpolation-constraints} \\
-	&\qquad \tv_{i,e} = \tv_{i,e'} \ \forall e, e' | i \sim e, e'. \label{eq:consensus-constraints}
-\end{align}
-\end{subequations}
-Clearly~\eqref{eq:equivalent-problem} is a strongly convex problem with convex constraints defined in the variables $\tv_{i,e}$.
-
-%----------------------------------------
-\subsection{PRS solver}
-Let $\xx$ be the vector stacking all the $\tv_{i,e}$, then the problem is equivalent to
-\begin{align*}
-	\min_{\xx} f(\xx) + g(\xx)
-\end{align*}
-where
-$$
-	f(\xx) = \frac{1}{2(D-1)} \norm{\xx - \y}^2 + f_1(\xx)
-$$
-with $f_1$ the indicator function imposing~\eqref{eq:interpolation-constraints} and $g$ the indicator function imposing the ``consensus'' constraints~\eqref{eq:consensus-constraints}. The problem can then be solved using the Peaceman-Rachford splitting (PRS) characterized by the following updates $\ell \in \mathbb{N}$:
-\begin{subequations}
-\begin{align}
-	&\xx^\ell = \prox_{\rho f}(\z^\ell) \label{eq:prs-xi} \\
-	&\vv^\ell = \prox_{\rho g}(2 \xx^\ell - \z^\ell) \\
-	&\z^{\ell+1} = \z^\ell + \vv^\ell - \xx^\ell.
-\end{align}
-\end{subequations}
-The proximal of $g$ corresponds to the projection onto the consensus space, and thus can be characterized simply by
-$$
-	\vv_{i,e}^\ell = \frac{1}{D-1} \sum_{e' | i \sim e'} \left( 2 \tv_{i,e'}^\ell - \z_{e'}^\ell\right).
-$$
-Regarding the proximal of $f$, is is clear that $f$ is separable, in the sense that it can be written as
-$$
-	f(\xx) = \sum_{e \in \mathcal{V}} \left[ \frac{1}{2 (D-1)} \norm{\begin{bmatrix} \tv_{i,e} \\ \tv_{j,e} \end{bmatrix} - \begin{bmatrix} \y_i \\ \y_j \end{bmatrix}}^2 + \iota_{e}(\tv_{i,e},\tv_{j,e}) \right]
-$$
-where $\iota_{e}$ denotes the indicator function of~\eqref{eq:interpolation-constraints}. Therefore, the update~\eqref{eq:prs-xi} can be solved by solving (possibly in parallel) the problems
-\begin{equation}\label{eq:local-updates}
-\begin{split}
-	(\tv_{i,e},\tv_{j,e}) &= \argmin \left\{ \frac{1}{2 (D-1)} \norm{\begin{bmatrix} \tv_{i,e} \\ \tv_{j,e} \end{bmatrix} - \begin{bmatrix} \y_i \\ \y_j \end{bmatrix}}^2 + \frac{1}{2\rho} \norm{\begin{bmatrix} \tv_{i,e} \\ \tv_{j,e} \end{bmatrix} - \z_e^\ell} \right\}\\
-	&\text{s.t.} \quad \norm{\tv_{i,e} - \tv_{j,e}}^2 \leq \zeta^2 \norm{\x_i - \x_j}^2.
-\end{split}
-\end{equation}
+[Maybe here specify the Newton's step?]
 
 %------------------------------------------------------------
 \subsection{Local updates}
@@ -537,8 +646,71 @@ $$
 	\Pm_1 = 2 \begin{bmatrix} \Im_n & - \Im_n \\ - \Im_n & \Im_n \end{bmatrix}, \quad \q_1 = 0{2n}, \quad r_1 = - \zeta^2 \norm{\x_i - \x_j}^2.
 $$
 
+
 %------------------------------------------------------------------------------
-\section{Interpolation Using MAP}
+\section{Interpolating a Lipschitz continuous operator}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% INTERPOLATION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+We will be discussing possible methods to solve the interpolation problem~\eqref{eq:interpolation} to select the most efficient strategy. Problem~\eqref{eq:interpolation} is a \emph{feasibility problem}, that is, it requires that we find a point in the intersection of closed, convex sets. There are several algorithms for solving this class of problems, \emph{e.g.} the method of alternating projections (MAP) and Peaceman-Rachford splitting, see \cite{reich_projection_2015} for a review.
+
+Moreover, the feasibility problem~\eqref{eq:interpolation} can also be solved using \emph{best approximation methods}, which find the point in the intersection that is closest to a given vector. Of course best approximation problems are more difficult than feasibility ones. The literature on best approximation is very vast, see \emph{e.g.} \cite{reich_projection_2015}, Chapter~30 of \cite{bauschke_convex_2017}, \cite{artacho_new_2018} and references therein.
+
+Finally, given the fact that~\eqref{eq:interpolation} requires a point in the intersection of balls, we may use methods that are tailored to the particular structure of ball sets, \emph{e.g.} \cite{lushchakova_geometric_2020}.
+
+\subsection{Comparison}
+The numerical results reported in the here are derived in the following set-up. We generate $\ell$ intersecting ball sets in $\R^n$, with radii randomly picked in $(0, 100)$. The centers of the balls are randomly chosen so that the sets include the origin, and are thus guaranteed to intersect at least in that point.
+
+In Figure~\ref{fig:projection_methods} we report a comparison of three feasibility methods -- alternating projections (MAP), parallel projections (PP), Peaceman-Rachford splitting(PRS) \cite{reich_projection_2015,bauschke_convex_2017} -- and two best approximation methods -- Halpern and Haugazeau methods \cite{bauschke_convex_2017}. The simulations are performed choosing a number of points $\ell = 50$ in dimension $n = 5$.
+
+\begin{figure}[!ht]
+\centering
+\includegraphics[width = 0.9\columnwidth]{Figures/comparison_projection_methods}
+\caption{Comparison of feasibility and best approximation methods.}
+\label{fig:projection_methods}
+\end{figure}
+
+As we can see, MAP is by far the fastest of the methods, reaching convergence (with tolerance $10^{-14}$) in just $33$ iterations. Parallel projections and Peaceman-Rachford splitting reach convergence in $1930$ and $1036$ iterations, respectively, while the best approximation methods are still far from converging after $50000$ iterations.
+
+MAP not only achieves superior convergence speed, but it is also the simplest of the methods in terms of computational complexity, see \emph{e.g.} \cite{reich_projection_2015}. Therefore we select MAP for our interpolation problem. 
+
+\begin{remark}
+Although MAP achieves extremely fast convergence when applied to~\eqref{eq:interpolation}, this is by no means true in general; indeed, it is possible to show that MAP has \emph{arbitrarily slow} convergence in some scenarios, see for example \cite{hundal_alternating_2004,bauschke_characterizing_2009}.
+\end{remark}
+
+%------------------------------------------
+\subsection{How fast is MAP?}
+As shown in the previous section, solving~\eqref{eq:interpolation} using the method of alternating projections is very effective. Recall that the MAP is characterized by the following update
+\begin{equation}\label{eq:alternating_projections}
+	\x^{j+1} = (\proj_{\ball{\cv_{\ell}}{r_{\ell}}} \circ \cdots \proj_{\ball{\cv_1}{r_1}}) \x^j, \quad j \in \N
+\end{equation}
+for any initial condition $\x^0 \in \R^n$.
+
+In Figure~\ref{fig:map-histogram} we report an histogram of the number of iterations that MAP required to converge, with $\ell = 100$ and $n = 25$. The histogram is computed using data from $10000$ repetitions, each repetition being characterized by a different set of randomly generated balls.
+
+\begin{figure}[!ht]
+\centering
+\includegraphics[width = 0.9\columnwidth]{Figures/MAP_histogram}
+\caption{Histogram of iterations required by MAP over $10000$ repetitions.}
+\label{fig:map-histogram}
+\end{figure}
+
+As we can see, in almost one quarter of the repetitions MAP required a single iteration to converge, while the remaining number of iterations occur $\sim 500$ or less. In particular, the maximum number of iterations is $86$, and the mean is approximately $13 \pm 11$.
+
+In Figure~\ref{fig:map-changing-d} instead we evaluate the effect of the number of balls on the speed of MAP. For each value of $\ell$ between $2$ and $100$ we perform $10000$ repetitions of MAP, each repetition being characterized by a different random set of balls.
+
+\begin{figure}[!ht]
+\centering
+\includegraphics[width = 0.9\columnwidth]{Figures/MAP_changing_d}
+\caption{Histogram of iterations required by MAP over $10000$ repetitions.}
+\label{fig:map-changing-d}
+\end{figure}
+
+As we can see, the mean number of iterations required by MAP grows as the $\log(\ell)$, in particular as $2.84 \log(\ell)$ (dashed curve). Even though a larger number of sets increases the number of iterations, this number is still very small (in mean) even for $\ell = 100$.
+
+
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
