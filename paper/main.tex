@@ -271,7 +271,7 @@ A slightly different approach to convex regression is to look at the algorithm d
 \begin{equation}
 \x_{k+1} = \x_k - \alpha \nabla_{\x} f(\x_k; t_k) \equiv \underbrace{(I - \alpha \nabla_{x}f_k)}_{=:\T_k} (\x_k)
 \end{equation}
-where $\T_k: \R^n \to \R^n$ is the gradient algorithm operator. Interpreting algorithms as operators (possibly averaged, monotone, etc.) has been extremely fruitful for characterizing their convergence properties~\cite{Rockafellar1976, Eckstein1989, bauschke_convex_2017,Ryu2015,tom-also}. 
+where $\T_k: \R^n \to \R^n$ is the gradient algorithm operator. Interpreting algorithms as operators (possibly averaged, monotone, etc.) has been extremely fruitful for characterizing their convergence properties~\cite{Rockafellar1976, Eckstein1989, bauschke_convex_2017,Ryu2015,tom-also}.
 
 The counterpart of a smooth strongly convex function $\varphi_k$ in convex regression, is an operator that is contracting, i.e., $\|\T_k \x - \T_k \y\| \leq \zeta \|\x - \y\|$ for all $\x, \y \in \R^n$ and $\zeta \in (0,1)$. In fact, while $L$-smooth $m$-strongly convex functions give rise to gradient operators that are $..$-contracting, the space of contracting operators is larger (i.e., a function $f$ that is not strongly convex could in principle give rise to a contracting operator~\cite{linear}). 
 
