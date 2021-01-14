@@ -53,7 +53,7 @@ class Operator():
     """
     
     def __init__(self, dom, rng=None, time=None):
-        """
+        r"""
         Class constructor.
 
         Parameters
@@ -71,7 +71,7 @@ class Operator():
         self.rng = rng if rng is not None else self.dom
         
     def operator(self, x, *args, **kwargs):
-        """
+        r"""
         An evaluation of the operator.
 
         Parameters
@@ -88,7 +88,7 @@ class Operator():
         raise NotImplementedError()
     
     def fpr(self, x, *args, **kwargs):
-        """
+        r"""
         Evaluate the fixed point residual (FPR).
         
         This method returns the FPR
@@ -114,7 +114,7 @@ class Operator():
         return la.norm(x - self.operator(x, *args, **kwargs))
     
     def compose(self, other):
-        """
+        r"""
         Compose the operator with a second one.
         
         The method composes the operator with a second one, provided that the
@@ -138,7 +138,7 @@ class Operator():
         return CompositeOperator(self, other)
     
     def average(self, a):
-        """
+        r"""
         Averaging (a.k.a. relaxation) of the operator.
         
         The method returns an averaged version of the operator, defined as
@@ -166,7 +166,7 @@ class Operator():
         return AveragedOperator(self, a)
     
     def sample(self, t):
-        """
+        r"""
         Sample the operator.
         
         This method returns a `SampledOperator` object which consists of the
@@ -243,7 +243,7 @@ class SeparableOperator(Operator):
     """
     
     def __init__(self, ops):
-        """
+        r"""
         Class constructor.
 
         Parameters
@@ -260,7 +260,7 @@ class SeparableOperator(Operator):
         self.ops, self.N = ops, len(ops)
     
     def operator(self, x, *args, i=None, **kwargs):
-        """
+        r"""
         An evaluation of the separable operator.
         
         This method performs an evaluation of the component operators. If the 
@@ -309,7 +309,7 @@ class DiscreteDynamicOperator(Operator):
     """
     
     def __init__(self, ops, t_s=1):
-        """
+        r"""
         Class constructor.
         
         Creates the dynamic operator, optionally using the specified sampling
@@ -340,7 +340,7 @@ class DiscreteDynamicOperator(Operator):
         return self.ops[self.time.check_input(t)].operator(x, **kwargs)
 
     def sample(self, t):
-        """
+        r"""
         Sample the operator.
         
         The difference with the default `Operator` method is that it returns an
@@ -499,7 +499,7 @@ class Gradient(Operator):
     """
     
     def __init__(self, f, s):
-        """
+        r"""
         Gradient step operator (or forward operator).
 
         Parameters
@@ -530,7 +530,7 @@ class Proximal(Operator):
     """
     
     def __init__(self, f, p):
-        """
+        r"""
         Proximal operator (or backwrd operator).
 
         Parameters
