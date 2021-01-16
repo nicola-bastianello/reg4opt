@@ -329,18 +329,19 @@ By the Corollary to Theorem~5 of \cite{valentine_lipschitz_1945}, we know that a
 where $\ball{\cv}{r} \subset \R^n$ denotes a ball of center $\cv$ and radius $r$. That is, we can interpolate $\hat{\T}_k$ in a new point $\x$ by finding a point in the intersection of the balls centered in $\hat{\tv}_i$ with radius $\zeta \norm{\x - \x_i}$, $i = 1, \ldots, \ell$. Notice that the intersection $\bigcap_{i \in I_{\ell}} \ball{\hat{\tv}_i}{\zeta \norm{\x - \x_i}}$ is guaranteed to be non-empty by Theorem~1 of \cite{valentine_lipschitz_1945}.
 
 By definition $\hat{\tv}$ satisfies
-\begin{equation}
+\begin{equation}\label{eq:lipschitz-interpolation}
 	\norm{\hat{\tv} - \hat{\tv_i}} \leq \zeta \norm{\x - \x_i}, \quad \forall i \in I_{\ell},
 \end{equation}
 which implies that Lipschitz continuity (and contractivity) is preserved.
 
 \andrea{What happens to $\|\tv' - \tv''\|$ for $\x'$ and $\x''$ both interpolated? Say it has to be sequential! }
 
-
 Interpolating a Lipschitz continuous operator requires therefore finding a point in the intersection of $\ell$ ball sets. In the Appendix [..], we show how to efficiently compute this intersection with the method of alternating projections~\cite{reich_projection_2015}.
+
 
 \begin{remark}[Important] We notice here that the convex regression and operator regression methods can be used with any starting function $f$, or operator $\mathcal{T}$. However, functions close to be in $\mathcal{S}_{m,L}(\R^n)$ (e.g., smooth $\mu$-weakly convex functions with small $\mu$) and operators close to be $\zeta$-contractive (e.g., strictly non-expansive operators) would allow for more sensible outcomes. A good point to make here is that the cost function of the regression problems~\eqref{socp} and \eqref{eq:operator-regression} measures the distance between the original function or operator to the class one is projecting them onto, thereby offering a proxy for regularization error. Moreover, one can trade-off regularization accuracy and speed tuning the free parameters $m,L$ or $\zeta$. An option for tuning $\zeta$ automatically is explored in the Appendix.
 \end{remark}
+
 
 \subsection{PRS-based solver}
 
@@ -370,9 +371,11 @@ Let $\xx$ be the vector stacking all the $\tv_{i,e}$, then the problem is equiva
 \end{align*}
 where
 $$
-	\psi(\xx) = \frac{1}{2(\ell-1)} \norm{\xx - \y}^2 + \psi_1(\xx)
+	\psi(\xx) = \frac{1}{2(\ell-1)} \norm{\xx - \y}^2 + \iota(\xx)
 $$
-with $\psi_1$ the indicator function imposing~\eqref{eq:interpolation-constraints} and $\xi$ the indicator function imposing the ``consensus'' constraints~\eqref{eq:consensus-constraints}. The problem can then be solved using the Peaceman-Rachford splitting (PRS) characterized by the following updates $\ell \in \mathbb{N}$:
+\nicola{I renamed $\psi_1$ to $\iota$}
+
+with $\iota(\xx) = \sum_{e \in \mathcal{V}} \iota_{e}(\tv_{i,e},\tv_{j,e})$ and $\iota_e$ the indicator function imposing~\eqref{eq:interpolation-constraints}, and $\chi$ the indicator function imposing the ``consensus'' constraints~\eqref{eq:consensus-constraints}. The problem can then be solved using the Peaceman-Rachford splitting (PRS) characterized by the following updates $\ell \in \mathbb{N}$:
 \begin{subequations}
 \begin{align}
 	&\xx^j = \prox_{\rho \psi}(\z^j) \label{eq:prs-xi} \\
@@ -386,9 +389,10 @@ $$
 $$
 Regarding the proximal of $\psi$, $\psi$ is separable, in the sense that it can be written as
 $$
-	\psi(\xx) = \sum_{e \in \mathcal{V}} \left[ \frac{1}{2 (\ell-1)} \norm{\begin{bmatrix} \tv_{i,e} \\ \tv_{j,e} \end{bmatrix} - \begin{bmatrix} \y_i \\ \y_j \end{bmatrix}}^2 + \iota_{e}(\tv_{i,e},\tv_{j,e}) \right]
+	\psi(\xx) = \sum_{e \in \mathcal{V}} \left[ \frac{1}{2 (\ell-1)} \norm{\begin{bmatrix} \tv_{i,e} \\ \tv_{j,e} \end{bmatrix} - \begin{bmatrix} \y_i \\ \y_j \end{bmatrix}}^2 + \iota_{e}(\tv_{i,e},\tv_{j,e}) \right].
 $$
-where $\iota_{e}$ denotes the indicator function of~\eqref{eq:interpolation-constraints} \andrea{is it $\psi_1$?}. Therefore, the update~\eqref{eq:prs-xi} can be solved by solving (possibly in parallel) the problems
+%where $\iota_{e}$ denotes the indicator function of~\eqref{eq:interpolation-constraints} \andrea{is it $\psi_1$?}.
+Therefore, the update~\eqref{eq:prs-xi} can be solved by solving (possibly in parallel) the problems
 \begin{equation}\label{eq:local-updates}
 \begin{split}
 	(\tv_{i,e},\tv_{j,e}) &= \argmin_{\tv_{i,e},\tv_{j,e}} \left\{ \frac{1}{2 (\ell-1)} \norm{\begin{bmatrix} \tv_{i,e} \\ \tv_{j,e} \end{bmatrix} - \begin{bmatrix} \y_i \\ \y_j \end{bmatrix}}^2 + \right.\\ & \left.\qquad \frac{1}{2\rho} \norm{\begin{bmatrix} \tv_{i,e} \\ \tv_{j,e} \end{bmatrix} - \z_e^j}^2 \right\}\\
@@ -477,6 +481,7 @@ At each time $t_k$ do:
 \end{enumerate}
 \smallskip
 \hrule
+
 
 \andrea{add explanation and closure.}
 
@@ -656,11 +661,11 @@ In Figure~\ref{fig:projection_methods} we report a comparison of three feasibili
 \begin{figure}[!ht]
 \centering
 \includegraphics[width = 0.9\columnwidth]{Figures/comparison_projection_methods}
-\caption{Comparison of feasibility and best approximation methods.}
+\caption{Comparison of feasibility and best approximation methods. \nicola{modified the figure to have markers}}
 \label{fig:projection_methods}
 \end{figure}
 
-As we can see, MAP is by far the fastest of the methods, reaching convergence (with tolerance $10^{-14}$) in just $33$ iterations. Parallel projections and Peaceman-Rachford splitting reach convergence in $1930$ and $1036$ iterations, respectively, while the best approximation methods are still far from converging after $50000$ iterations.
+As we can see, MAP is by far the fastest of the methods, reaching convergence (with tolerance $10^{-14}$) in just $30$ iterations. Parallel projections and Peaceman-Rachford splitting reach convergence in $2161$ and $1158$ iterations, respectively, while the best approximation methods are still far from converging after $50000$ iterations.
 
 MAP not only achieves superior convergence speed, but it is also the simplest of the methods in terms of computational complexity, see \emph{e.g.} \cite{reich_projection_2015}. Therefore we select MAP for our interpolation problem. 
 
