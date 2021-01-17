@@ -152,17 +152,12 @@ x_old = [x0]
 for k in range(f.time.num_samples):
     
     T_k = T.sample(k*t_s) # sampled operator
-        
-    for _ in range(num_iter):
-        
-        # Anderson acceleration on gradient
-        y = anderson_acceleration({"T":T_k}, m, x_0=x_old, num_iter=num_iter)
-        
-        # proximal step
-        y = g.proximal(y, step)
-        x_old.append(y)
+                
+    # Anderson acceleration on gradient
+    y = anderson_acceleration({"T":T_k}, m, x_0=x_old, num_iter=num_data*(num_iter-1))
     
-    x[...,k+1] = y
+    # proximal step
+    x[...,k+1] = g.proximal(y, step)
     
     # update list of past iterates
     x_old = [x[...,k+1-i] for i in range(min(k+1, m))][::-1]
