@@ -1,0 +1,59 @@
+This is BibTeX, Version 0.99d (TeX Live 2019/Debian)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: main.aux
+The style file: icml2021.bst
+Database file #1: PaperCollection00.bib
+Database file #2: references.bib
+Repeated entry---line 62 of file references.bib
+ : @phdthesis{Taylor2017
+ :                      ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 73 of file references.bib
+ : @article{Taylor2016
+ :                    ,
+I'm skipping whatever remains of this entry
+Warning--I didn't find a database entry for "linear"
+Warning--I didn't find a database entry for "."
+Warning--there's a number but no series in Jadbabaie2015
+You've used 41 entries,
+            2773 wiz_defined-function locations,
+            856 strings with 12287 characters,
+and the built_in function-call counts, 19559 in all, are:
+= -- 1780
+> -- 1033
+< -- 30
++ -- 351
+- -- 308
+* -- 1628
+:= -- 2941
+add.period$ -- 126
+call.type$ -- 41
+change.case$ -- 223
+chr.to.int$ -- 39
+cite$ -- 83
+duplicate$ -- 905
+empty$ -- 1664
+format.name$ -- 379
+if$ -- 4130
+int.to.chr$ -- 3
+int.to.str$ -- 1
+missing$ -- 40
+newline$ -- 213
+num.names$ -- 166
+pop$ -- 418
+preamble$ -- 1
+purify$ -- 184
+quote$ -- 0
+skip$ -- 672
+stack$ -- 0
+substring$ -- 910
+swap$ -- 115
+text.length$ -- 7
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 446
+warning$ -- 1
+while$ -- 181
+width$ -- 0
+write$ -- 540
+(There were 2 error messages)

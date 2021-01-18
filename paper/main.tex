@@ -41,6 +41,7 @@
 \newcommand{\f}{\mathbold{f}}
 \newcommand{\bdelta}{\mathbold{\delta}}
 \newcommand{\transp}{\top}
+\newcommand{\av}{\mathbold{a}}
 \newcommand{\bv}{\mathbold{b}}
 \newcommand{\e}{\mathbold{e}}
 \newcommand{\p}{\mathbold{p}}
@@ -289,7 +290,7 @@ We include in the appendix all the technical details of such CvxReg-Boost algori
 %------------------------------------------------------------------------------
 \section{Q2. Operator Regression}\label{sec:opreg}
 
-\andrea{Decide $k$ or $k+1$}
+\andrea{Decide $k$ or $k+1$} \nicola{we could go with $\x_{k+1}$ coming from $f_k$, which is what the learning community usually does}
 
 A slightly different approach to convex regression is to look at the algorithm directly, instead of the function. First of all, we remind the reader that any algorithm can be seen as an operator that maps the current approximate optimizer $\x_k$ into a new approximate optimizer $\x_{k+1}$. For example, a gradient algorithm of the form,
 \begin{equation}
@@ -404,7 +405,9 @@ Problems~\eqref{eq:local-updates} are convex QCQP with one constraint, and can b
 %------------------------------------------------------------------------------
 \section{OpReg-Boost}\label{sec:online-opreg}
 
-We are now ready to present our main algorithm. 
+We are now ready to present our main algorithm.
+
+\nicola{say that the algorithm applies to any operator not only forward-backward}
 
 Having to deal with composite problems $f(\cdot; t_k) + g(\cdot; t_k)$, we focus here on online algorithms of the forward-backward type, i.e., 
 \begin{equation}
@@ -493,13 +496,13 @@ At each time $t_k$ do:
 Wish-list
 
 \begin{itemize}
-\item non-negative Least-squares
+\item non-negative Least-squares \nicola{not very interesting, the results are similar to lasso}
 
-\item L1 ? 
+\item L1 \nicola{done}
 
 \item Relative-entropy non-negative regression
 
-\item weakly convex: time-varying phase retrival? (see Convergence of a Stochastic Gradient Method with Momentum for Nonsmooth Nonconvex Optimization)
+\item weakly convex: time-varying phase retrival? (see Convergence of a Stochastic Gradient Method with Momentum for Nonsmooth Nonconvex Optimization) \nicola{done}
 
 \end{itemize}
 
@@ -508,84 +511,51 @@ Compare (real-time, gradient/functional calls) with Nesterov, AA, CvxReg-Boost, 
 For the weakly convex one: See Convergence of a Stochastic Gradient Method with Momentum for Nonsmooth Nonconvex Optimization (momentum as described there?)
 
 
+In the following we present a series of experiments to evaluate the performance of the proposed methods. We consider the following challenging set-ups: \emph{(i)} online linear regression with a cost that has an extremely high condition number ($10^8$) and is convex but not strongly so; \emph{(ii)} an online phase retrieval problem that is weakly convex, and which is characterized by a high computational cost for an operator evaluation, \nicola{\emph{(iii)} ....}
+
 
 %------------------------------------------------
-\subsection{Simulations set-up}
-We consider the following time-varying problem:
-\begin{equation}\label{eq:tv-problem}
-	\x^*(t_k) = \argmin_{\x \in \R^n} \frac{1}{2} \norm{\Am \x - \bv(t_k)}^2 + w \norm{\x}_1
+\subsection{Online linear regression}
+In this first experiment we consider the following time-varying problem:
+\begin{equation}\label{eq:linear-regression}
+	\x^*(t_k) \in \argmin_{\x \in \R^n} \frac{1}{2} \norm{\Am \x - \bv(t_k)}^2 + w \norm{\x}_1
 \end{equation}
-with $n = 10$, $\Am$ matrix with maximum and minimum (non-zero) eigenvalues $\sqrt{L} = 10^8$, $\sqrt{\mu} = 1$, and with rank $5$; $\y(t_k)$ has sinusoidal components with $3$ zero components. Due to $\Am$ being rank deficient, the cost $f$ is convex but not strongly so.
+with $n = 10$, $w = 5$, $\Am$ matrix with maximum and minimum (non-zero) eigenvalues $\sqrt{L} = 10^4$, $\sqrt{\mu} = 1$, and with rank $5$; $\y(t_k)$ has sinusoidal components with $3$ zero components. Due to $\Am$ being rank deficient, the cost $f$ is convex but not strongly so, and the condition number of the regression cost is $\kappa = L / \mu = 10^8$.
+
+\begin{figure}[ht]
+\vskip 0.2in
+\begin{center}
+\centerline{\includegraphics[width=\columnwidth]{Figures/lasso-operator_calls}}
+\caption{Comparison of the cumulative tracking error evolution for forward-backward, its accelerated versions FISTA \cite{beck_fast_2009} and Anderson \cite{pmlr-v119-mai20a}, OpReg-Boost and interpolated OpReg-Boost, and CvxReg-Boost. The methods are given a budget of $10$ gradient calls per sampling time.}
+\label{fig:lasso-operator_calls}
+\end{center}
+\vskip -0.2in
+\end{figure}
 
 
 %------------------------------------------------
-\subsection{Results}
+\subsection{Online phase retrieval}
+In this experiment we consider the following online phase retrieval problem \cite{duchi_stochastic_2018}
+\begin{equation}\label{eq:phase-retrieval}
+	\x^*(t_k) \in \argmin_{\x \in \R^n} \frac{1}{m} \sum_{i = 1}^{m} \left| \langle \av_i, \x \rangle^2 - b_i(t_k) \right|
+\end{equation}
+where we want to reconstruct a time-varying signal $\y(t_k)$ (which is performing a random walk on the unit sphere in $\R^n$) from the noisy measurements $b_i(t_k) = \langle \av_i, \y(t_k) \rangle^2 + \xi_i(t_k)$. In particular, we have $n = 15$ and $m = 200$, the measurement noises $\xi_i(t_k)$ are drawn from a Laplacian distribution of scale $1$, and $\Am = \begin{bmatrix} \av_1 & \cdots & \av_m \end{bmatrix}^\top = \mathbold{U} \mathbold{D}$ where $\mathbold{U}$ is a randomly generated orthogonal matrix and $\mathbold{D}$ is a diagonal matrix with elements equispaced in $[0, 100]$.
 
+We consider the prox-linear solver proposed in \cite{drusvyatskiy_error_2018} and characterized by $\T_k \y = \prox_{\alpha f_\y(\cdot; t_k)}(\y)$ where we $f_\y$ denotes the linearized version of the cost in~\eqref{eq:phase-retrieval}:
+$$
+	f_\y(\x; t_k) = \frac{1}{m} \sum_{i = 1}^m \left| \langle \av_i, \y \rangle^2 + 2 \langle \av_i, \y \rangle \langle \av_i, \x - \y \rangle - b_i \right|.
+$$
+Since we do not have a closed form expression for $\T_k$, each operator evaluation requires the solution of a quadratic program.
 
-
-
-%% FIGURE
-%\begin{figure}[ht]
-%\vskip 0.2in
-%\begin{center}
-%\centerline{\includegraphics[width=\columnwidth]{icml_numpapers}}
-%\caption{Historical locations and number of accepted papers for International
-%Machine Learning Conferences (ICML 1993 -- ICML 2008) and International
-%Workshops on Machine Learning (ML 1988 -- ML 1992). At the time this figure was
-%produced, the number of accepted papers for ICML 2008 was unknown and instead
-%estimated.}
-%\label{icml-historical}
-%\end{center}
-%\vskip -0.2in
-%\end{figure}
-
-
-%% ALGORITHM
-%\begin{algorithm}[tb]
-%   \caption{Bubble Sort}
-%   \label{alg:example}
-%\begin{algorithmic}
-%   \STATE {\bfseries Input:} data $x_i$, size $m$
-%   \REPEAT
-%   \STATE Initialize $noChange = true$.
-%   \FOR{$i=1$ {\bfseries to} $m-1$}
-%   \IF{$x_i > x_{i+1}$}
-%   \STATE Swap $x_i$ and $x_{i+1}$
-%   \STATE $noChange = false$
-%   \ENDIF
-%   \ENDFOR
-%   \UNTIL{$noChange$ is $true$}
-%\end{algorithmic}
-%\end{algorithm}
-
-%% TABLE
-%\begin{table}[t]
-%\caption{Classification accuracies for naive Bayes and flexible
-%Bayes on various data sets.}
-%\label{sample-table}
-%\vskip 0.15in
-%\begin{center}
-%\begin{small}
-%\begin{sc}
-%\begin{tabular}{lcccr}
-%\toprule
-%Data set & Naive & Flexible & Better? \\
-%\midrule
-%Breast    & 95.9$\pm$ 0.2& 96.7$\pm$ 0.2& $\surd$ \\
-%Cleveland & 83.3$\pm$ 0.6& 80.0$\pm$ 0.6& $\times$\\
-%Glass2    & 61.9$\pm$ 1.4& 83.8$\pm$ 0.7& $\surd$ \\
-%Credit    & 74.8$\pm$ 0.5& 78.3$\pm$ 0.6&         \\
-%Horse     & 73.3$\pm$ 0.9& 69.7$\pm$ 1.0& $\times$\\
-%Meta      & 67.1$\pm$ 0.6& 76.5$\pm$ 0.5& $\surd$ \\
-%Pima      & 75.1$\pm$ 0.6& 73.9$\pm$ 0.5&         \\
-%Vehicle   & 44.9$\pm$ 0.6& 61.5$\pm$ 0.4& $\surd$ \\
-%\bottomrule
-%\end{tabular}
-%\end{sc}
-%\end{small}
-%\end{center}
-%\vskip -0.1in
-%\end{table}
+\begin{figure}[ht]
+\vskip 0.2in
+\begin{center}
+\centerline{\includegraphics[width=\columnwidth]{Figures/phase_retrieval}}
+\caption{Comparison of the cumulative tracking error evolution for prox-linear \cite{drusvyatskiy_error_2018}, the Anderson acceleration version, and OpReg-Boost. The methods are given a budget of $10$ operator evaluations per sampling time.}
+\label{fig:phase-retrieval}
+\end{center}
+\vskip -0.2in
+\end{figure}
 
 
 
@@ -658,11 +628,14 @@ The numerical results reported in the here are derived in the following set-up. 
 
 In Figure~\ref{fig:projection_methods} we report a comparison of three feasibility methods -- alternating projections (MAP), parallel projections (PP), Peaceman-Rachford splitting(PRS) \cite{reich_projection_2015,bauschke_convex_2017} -- and two best approximation methods -- Halpern and Haugazeau methods \cite{bauschke_convex_2017}. The simulations are performed choosing a number of points $\ell = 50$ in dimension $n = 5$.
 
-\begin{figure}[!ht]
-\centering
-\includegraphics[width = 0.9\columnwidth]{Figures/comparison_projection_methods}
-\caption{Comparison of feasibility and best approximation methods. \nicola{modified the figure to have markers}}
+\begin{figure}[ht]
+\vskip 0.2in
+\begin{center}
+\centerline{\includegraphics[width=\columnwidth]{Figures/comparison_projection_methods}}
+\caption{Comparison of feasibility and best approximation methods.}
 \label{fig:projection_methods}
+\end{center}
+\vskip -0.2in
 \end{figure}
 
 As we can see, MAP is by far the fastest of the methods, reaching convergence (with tolerance $10^{-14}$) in just $30$ iterations. Parallel projections and Peaceman-Rachford splitting reach convergence in $2161$ and $1158$ iterations, respectively, while the best approximation methods are still far from converging after $50000$ iterations.
@@ -683,22 +656,28 @@ for any initial condition $\x^0 \in \R^n$.
 
 In Figure~\ref{fig:map-histogram} we report an histogram of the number of iterations that MAP required to converge, with $\ell = 100$ and $n = 25$. The histogram is computed using data from $10000$ repetitions, each repetition being characterized by a different set of randomly generated balls.
 
-\begin{figure}[!ht]
-\centering
-\includegraphics[width = 0.9\columnwidth]{Figures/MAP_histogram}
+\begin{figure}[ht]
+\vskip 0.2in
+\begin{center}
+\centerline{\includegraphics[width=\columnwidth]{Figures/MAP_histogram}}
 \caption{Histogram of iterations required by MAP over $10000$ repetitions.}
 \label{fig:map-histogram}
+\end{center}
+\vskip -0.2in
 \end{figure}
 
 As we can see, in almost one quarter of the repetitions MAP required a single iteration to converge, while the remaining number of iterations occur $\sim 500$ or less. In particular, the maximum number of iterations is $86$, and the mean is approximately $13 \pm 11$.
 
 In Figure~\ref{fig:map-changing-d} instead we evaluate the effect of the number of balls on the speed of MAP. For each value of $\ell$ between $2$ and $100$ we perform $10000$ repetitions of MAP, each repetition being characterized by a different random set of balls.
 
-\begin{figure}[!ht]
-\centering
-\includegraphics[width = 0.9\columnwidth]{Figures/MAP_changing_d}
-\caption{Histogram of iterations required by MAP over $10000$ repetitions.}
+\begin{figure}[ht]
+\vskip 0.2in
+\begin{center}
+\centerline{\includegraphics[width=\columnwidth]{Figures/MAP_changing_d}}
+\caption{Mean number of iterations required by MAP as a function of the number of sets, computed over $10000$ repetitions. The dashed curve depicts a logarithmic interpolation of the curve.}
 \label{fig:map-changing-d}
+\end{center}
+\vskip -0.2in
 \end{figure}
 
 As we can see, the mean number of iterations required by MAP grows as the $\log(\ell)$, in particular as $2.84 \log(\ell)$ (dashed curve). Even though a larger number of sets increases the number of iterations, this number is still very small (in mean) even for $\ell = 100$.

@@ -82,13 +82,14 @@ num_data = 5
 var = 1e-2 # for choosing training data
 
 bar_zeta = 0.5 # contraction constant of approximate operator
-bar_mu, bar_L = 1, 1e5 # strong convexity and smoothness moduli
+bar_mu, bar_L = 1, 5 # strong convexity and smoothness moduli
 
-num_iter = 5 # num. of iterations per sampled problem
+num_iter = 2 # num. of iterations per sampled problem
 
 # PRS parameters
 newton_params = {'tol':1e-4, 'num_iter':5, 'b':0.5, 'c':0.1, 'max_iter':2}
-rho = 1
+rho = 1 # for OpReg
+rho_cr = 0.01 # for CvxReg
 tol = 1.5*1e-4
 
 # parameter for Anderson acceleration (num. of past iterates in extrapolation)
@@ -154,7 +155,7 @@ for k in range(f.time.num_samples):
     T_k = T.sample(k*t_s) # sampled operator
                 
     # Anderson acceleration on gradient
-    y = anderson_acceleration({"T":T_k}, m, x_0=x_old, num_iter=num_data*(num_iter-1))
+    y = anderson_acceleration({"T":T_k}, m, x_0=x_old, num_iter=num_data*(num_iter-1)+1)
     
     # proximal step
     x[...,k+1] = g.proximal(y, step)
@@ -216,7 +217,7 @@ for k in range(f.time.num_samples):
     
     # ------ first step: solve OpReg
     # training data
-    x_i, y_i = generate_data(T_k, y, num_data, var=var)
+    x_i, y_i = generate_data(T_k, y, num_iter*num_data, var=var)
     
     # apply OpReg solver
     t_i, _ = operator_regression(x_i, y_i, bar_zeta, solver="PRS", tol=tol, rho=rho, newton_params=newton_params)
@@ -257,7 +258,7 @@ for k in range(f.time.num_samples):
         x_i, y_i, w_i = generate_data_cr(f_k, y, num_data, gradient=True, var=var)
         
         # apply OpReg solver
-        _, g_i = convex_regression(x_i, y_i, bar_mu, bar_L, w=w_i, solver="PRS", tol=tol, rho=rho, newton_params=newton_params)
+        _, g_i = convex_regression(x_i, y_i, bar_mu, bar_L, w=w_i, solver="PRS", tol=tol, rho=rho_cr, newton_params=newton_params)
         
         y = g.proximal(y - step*g_i[0], step)
     
@@ -304,16 +305,16 @@ plt.show()
 
 
 # ------ cumulative tracking error per gradient calls
-time = np.arange(1, f.time.num_samples+1)
+time = num_iter*num_data*np.arange(1, f.time.num_samples+1)
 
 plt.figure()
 
-plt.semilogy(num_iter*time, np.cumsum(err_pg)/time, label="Proximal gradient", marker=markers[0], markevery=50)
-plt.semilogy(num_iter*time, np.cumsum(err_f)/time, label="FISTA", marker=markers[1], markevery=50)
-plt.semilogy((num_data+num_iter-1)*time, np.cumsum(err_aa)/time, label="Anderson", marker=markers[2], markevery=50)
-plt.semilogy(num_data*num_iter*time, np.cumsum(err_or)/time, label="OpReg", marker=markers[3], markevery=50)
-plt.semilogy(num_data*num_iter*time, np.cumsum(err_cr)/time, label="CvxReg", marker=markers[4], markevery=50)
-plt.semilogy((num_data+num_iter-1)*time, np.cumsum(err_in)/time, label="OpReg (interpolation)", marker=markers[5], markevery=50)
+plt.semilogy(time, np.cumsum(err_pg)/time, label="Proximal gradient", marker=markers[0], markevery=50)
+plt.semilogy(time, np.cumsum(err_f)/time, label="FISTA", marker=markers[1], markevery=50)
+plt.semilogy(time, np.cumsum(err_aa)/time, label="Anderson", marker=markers[2], markevery=50)
+plt.semilogy(time, np.cumsum(err_or)/time, label="OpReg", marker=markers[3], markevery=50)
+plt.semilogy(time, np.cumsum(err_cr)/time, label="CvxReg", marker=markers[4], markevery=50)
+plt.semilogy(time, np.cumsum(err_in)/time, label="OpReg (interpolation)", marker=markers[5], markevery=50)
 
 
 plt.grid()
