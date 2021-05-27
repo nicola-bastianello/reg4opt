@@ -17,257 +17,264 @@ sys.path.append("..")
 from tvopt.utils import random_matrix
 from tvopt import costs, solvers
 
-from reg4opt.operators import Gradient, Proximal
+from reg4opt.operators import Gradient
 from reg4opt.regression import operator_regression, convex_regression
 from reg4opt.interpolation import interpolator
 from reg4opt.utils import print_progress, generate_data, generate_data_cr
-from reg4opt.solvers import fista, anderson_acceleration
 
+import tools
 
 
 #%% SET-UP
 
-n = 10 # domain dimension
-t_s, t_max = 0.1, 10 # sampling time and time horizon
+# ------------------  parameters choice
+n = 100 # domain dimension
+t_s, t_max = 0.1, 50 # sampling time and time horizon
 
+# signal frequence
+omega = 1
 
-# ------ signal
-omega = 3 # angular velocity
-phi = np.pi*ran.random(n) # phase
-shift = 10*ran.random(n) # shift the signals away from the origin
-
-# generate signal
-s = np.zeros((n, int(t_max/t_s)))
-for i in range(n):
-    s[i,:] = np.sin(omega*np.arange(0,t_max,t_s) + phi[i]) + shift[i]
-
-# sparsify signal
+# signal sparsity
 sparsity = int(n/3)
-
 idx_z = ran.choice(range(n), sparsity, False)
-s[idx_z,:] = 0
 
-# ------ observation noise
-noise_var = 1e-4
-noise = np.sqrt(noise_var)*ran.standard_normal(s.shape)
-
-
-# ------ regression cost
-# choose condition number
-L, mu = 1e8, 1
+# observation noise variance
+noise_var = 1e-2
 
 # observation matrix
-rk = n//2
-A = random_matrix(np.sqrt(np.hstack((L, (L-mu)*ran.random(rk-2)+mu, mu, np.zeros(n-rk)))))
-
-# observations
-b = A.dot(s) + noise
-
-
-# ------ generate cost and operator
-step = 2 / (L + mu) # gradient step-size
-w = 5 # weight of l1 norm
-
-# costs
-f = costs.DiscreteDynamicCost([costs.LinearRegression(A, b[:,[k]]) for k in range(b.shape[1])], t_s=t_s)
-g = costs.Norm_1(n, w)
-
-# operators
-T = Gradient(f, step)
-P = Proximal(g, step)
-
-
-# ------ OpReg parameters
-num_data = 5
-var = 1e-2 # for choosing training data
-
-bar_zeta = 0.5 # contraction constant of approximate operator
-bar_mu, bar_L = 1, 5 # strong convexity and smoothness moduli
-
-num_iter = 2 # num. of iterations per sampled problem
-
-# PRS parameters
-newton_params = {'tol':1e-4, 'num_iter':5, 'b':0.5, 'c':0.1, 'max_iter':2}
-rho = 1 # for OpReg
-rho_cr = 0.01 # for CvxReg
-tol = 1.5*1e-4
-
-# parameter for Anderson acceleration (num. of past iterates in extrapolation)
-m = num_data
-
+L, mu = 1e8, 1 # condition num.
+rk = n//2 # rank
 
 # initial condition
 x0 = 10*ran.standard_normal((n,1))
 
+# weight of regularization
+w = 1000
+
+
+# ------------------ create problem
+
+# ------ signal
+phi = np.pi*ran.random(n) # phase
+
+# generate signal
+signal = np.zeros((n, int(t_max/t_s)))
+for i in range(n):
+    signal[i,:] = np.sin(omega*np.arange(0,t_max,t_s) + phi[i])
+
+signal[idx_z,:] = 0 # sparsify signal
+
+
+# ------ observations
+# observation noise
+noise = np.sqrt(noise_var)*ran.standard_normal(signal.shape)
+
+# observations
+A = random_matrix(np.sqrt(np.hstack((L, (L-mu)*ran.random(rk-2)+mu, mu, np.zeros(n-rk)))))
+b = A.dot(signal) + noise
+
+
+# ------ algorithms parameters
+step = 2 / (L + mu) # gradient step-size
+
+num_data = 3 # num. data in OpReg and budget of allowed gradient calls
+var = 1e-2 # for choosing training data
+
+zeta = 0.75 # contraction constant of approximate operator
+bar_mu, bar_L = 1, 100 # strong convexity and smoothness moduli
+
+# PRS parameters
+rho = 1e-6
+rho_cr = 1e-3 # for CvxReg
+tol = 1e-4
+
+num_interp = 1
+
+# num. past iterates in Anderson extrapolation
+num_old = 3
+
+
+# ------ set up cost and operator
+# costs
+g = costs.Norm_1(n, w)
+f = tools.DynamicLinearRegression(A, b, t_s=t_s)
+# operator
+T = Gradient(f, step)
+
 
 #%% TEST THE ALGORITHMS
 
-# -------------------- GRADIENT
-print("Proximal gradient method ...")
+algs = ["Forward-backward", "FISTA", "Backtracking FISTA", "Anderson acc.", 
+        "OpReg-Boost (interp.)", "OpReg-Boost", "CvxReg-Boost"]
 
+
+errors = {}
+
+
+# -------------------- FORWARD-BACKWARD
+a = "Forward-backward"
+print(f"************************ {a} ************************")
+    
 x = np.zeros(f.dom.shape + (f.time.num_samples+1,))
 x[...,0] = x0
-
-
-for k in range(f.time.num_samples):
     
+for k in range(f.time.num_samples):
+        
     f_k = f.sample(k*t_s) # sample the cost
     
     # apply proximal gradient step
-    x[...,k+1] = solvers.fbs({"f":f_k, "g":g}, step, x_0=x[...,k], num_iter=num_iter)
+    x[...,k+1] = solvers.fbs({"f":f_k, "g":g}, step, x_0=x[...,k], num_iter=num_data)
     
     print_progress(k+1, f.time.num_samples)
 
 # results
-err_pg = [la.norm(x[...,k+1] - s[:,[k]]) for k in range(f.time.num_samples)]
+errors[a] = [la.norm(x[...,k] - signal[:,[k]]) for k in range(f.time.num_samples)]
 
 
 # -------------------- FISTA
-print("FISTA ...")
+a = "FISTA"
+print(f"\n************************ {a} ************************")
 
 x = np.zeros(f.dom.shape + (f.time.num_samples+1,))
 x[...,0] = x0
-
-
+    
 for k in range(f.time.num_samples):
+        
+    f_k = f.sample(k*t_s) # sample the cost
     
-    f_k = f.sample(k*t_s) # sampled cost
+    # apply FISTA
+    x[...,k+1] = tools.fista({"f":f_k, "g":g}, 1/L, x_0=x[...,k], num_iter=num_data)
     
-    # apply proximal gradient step
-    x[...,k+1] = fista({"f":f_k, "g":g}, 1/L, x_0=x[...,k], num_iter=num_iter)
-
     print_progress(k+1, f.time.num_samples)
 
 # results
-err_f = [la.norm(x[...,k+1] - s[:,[k]]) for k in range(f.time.num_samples)]
+errors[a] = [la.norm(x[...,k] - signal[:,[k]]) for k in range(f.time.num_samples)]
+
+
+# -------------------- BACKTRACKING FISTA
+a = "Backtracking FISTA"
+print(f"\n************************ {a} ************************")
+
+x = np.zeros(f.dom.shape + (f.time.num_samples+1,))
+x[...,0] = x0
+    
+for k in range(f.time.num_samples):
+        
+    f_k = f.sample(k*t_s) # sample the cost
+    
+    # apply backtracking FISTA
+    x[...,k+1] = tools.backtracking_fista({"f":f_k, "g":g}, 0.1, x_0=x[...,k], num_iter=num_data)
+    
+    print_progress(k+1, f.time.num_samples)
+
+# results
+errors[a] = [la.norm(x[...,k] - signal[:,[k]]) for k in range(f.time.num_samples)]
 
 
 # -------------------- ANDERSON ACCELERATION
-print("Anderson acceleration ...")
+a = "Anderson acc."
+print(f"\n************************ {a} ************************")
 
 x = np.zeros(f.dom.shape + (f.time.num_samples+1,))
 x[...,0] = x0
-x_old = [x0]
-
-
-for k in range(f.time.num_samples):
     
-    T_k = T.sample(k*t_s) # sampled operator
-                
+for k in range(f.time.num_samples):
+        
+    f_k = f.sample(k*t_s) # sample the cost
+    
     # Anderson acceleration on gradient
-    y = anderson_acceleration({"T":T_k}, m, x_0=x_old, num_iter=num_data*(num_iter-1)+1)
-    
-    # proximal step
-    x[...,k+1] = g.proximal(y, step)
-    
-    # update list of past iterates
-    x_old = [x[...,k+1-i] for i in range(min(k+1, m))][::-1]
-
-    print_progress(k+1, f.time.num_samples)
-
-# results
-err_aa = [la.norm(x[...,k+1] - s[:,[k]]) for k in range(f.time.num_samples)]
-
-
-# -------------------- OPERATOR REGRESSION
-print("OpReg ...")
-
-x = np.zeros(f.dom.shape + (f.time.num_samples+1,))
-x[...,0] = x0
-
-
-for k in range(f.time.num_samples):
-    
-    T_k = T.sample(k*t_s) # sampled operator
-    
-    # apply operator regression solver
-    y = x[...,k]
-    
-    for _ in range(num_iter):
-        
-        # generate training data
-        x_i, y_i = generate_data(T_k, y, num_data, var=var)
-        
-        # apply OpReg solver
-        t_i, _ = operator_regression(x_i, y_i, bar_zeta, solver="PRS", tol=tol, rho=rho, newton_params=newton_params)
-        
-        y = g.proximal(t_i[0], step)
-    
-    x[...,k+1] = y
+    x[...,k+1] = tools.guarded_anderson_acceleration({"f":f_k, "g":g}, num_old, 1/L, x_0=x[...,k], num_iter=num_data)
     
     print_progress(k+1, f.time.num_samples)
 
 # results
-err_or = [la.norm(x[...,k+1] - s[:,[k]]) for k in range(f.time.num_samples)]
+errors[a] = [la.norm(x[...,k] - signal[:,[k]]) for k in range(f.time.num_samples)]
 
-
-# -------------------- INTERPOLATED
-print("OpReg (interpolated) ...")
-
-x = np.zeros(f.dom.shape + (f.time.num_samples+1,))
-x[...,0] = x0
-
-
-for k in range(f.time.num_samples):
     
+# -------------------- OpReg
+a = "OpReg-Boost"
+print(f"\n************************ {a} ************************")
+
+x = np.zeros(T.dom.shape + (T.time.num_samples+1,))
+x[...,0] = x0
+    
+for k in range(T.time.num_samples):
+        
     T_k = T.sample(k*t_s) # sampled operator
     
-    # apply operator regression solver
-    y = x[...,k]
-    
-    # ------ first step: solve OpReg
-    # training data
-    x_i, y_i = generate_data(T_k, y, num_iter*num_data, var=var)
-    
+    # generate training data
+    x_i, y_i = generate_data(T_k, x[...,k], num_data, var=var)
+        
     # apply OpReg solver
-    t_i, _ = operator_regression(x_i, y_i, bar_zeta, solver="PRS", tol=tol, rho=rho, newton_params=newton_params)
+    t_i = operator_regression(x_i, y_i, zeta, tol=tol, rho=rho)
+
+    x[...,k+1] = g.proximal(t_i[0], step)
     
-    # apply solution
-    y = g.proximal(t_i[0], step)
-    
-    # ------ interpolation step        
-    for _ in range(num_iter-1):
-    
-        y = interpolator(y, x_i, t_i, bar_zeta)
-    
-    x[...,k+1] = g.proximal(y, step)
-    
-    print_progress(k+1, f.time.num_samples)
+    print_progress(k+1, T.time.num_samples)
 
 # results
-err_in = [la.norm(x[...,k+1] - s[:,[k]]) for k in range(f.time.num_samples)]
+errors[a] = [la.norm(x[...,k] - signal[:,[k]]) for k in range(T.time.num_samples)]
 
 
 # -------------------- CONVEX REGRESSION
-print("Convex regression ...")
+a = "CvxReg-Boost"
+print(f"\n************************ {a} ************************")
 
 x = np.zeros(f.dom.shape + (f.time.num_samples+1,))
 x[...,0] = x0
-
-
-for k in range(f.time.num_samples):
     
+for k in range(f.time.num_samples):
+        
     f_k = f.sample(k*t_s) # sampled cost
     
-    # apply convex regression solver
-    y = x[...,k]
+    # generate training data
+    x_i, y_i, w_i = generate_data_cr(f_k, x[...,k], num_data, gradient=True, var=var)
     
-    for _ in range(num_iter):
-        
-        # generate training data
-        x_i, y_i, w_i = generate_data_cr(f_k, y, num_data, gradient=True, var=var)
-        
-        # apply OpReg solver
-        _, g_i = convex_regression(x_i, y_i, bar_mu, bar_L, w=w_i, solver="PRS", tol=tol, rho=rho_cr, newton_params=newton_params)
-        
-        y = g.proximal(y - step*g_i[0], step)
+    # apply CvxReg solver
+    _, g_i = convex_regression(x_i, y_i, bar_mu, bar_L, w=w_i, tol=tol, rho=rho_cr)
     
-    x[...,k+1] = y
+    x[...,k+1] = g.proximal(x[...,k] - step*g_i[0], step)
     
     print_progress(k+1, f.time.num_samples)
 
 # results
-err_cr = [la.norm(x[...,k+1] - s[:,[k]]) for k in range(f.time.num_samples)]
+errors[a] = [la.norm(x[...,k] - signal[:,[k]]) for k in range(f.time.num_samples)]
+
+
+# -------------------- OpReg
+a = "OpReg-Boost (interp.)"
+print(f"\n************************ {a} ************************")
+
+x = np.zeros(T.dom.shape + (T.time.num_samples+1,))
+x[...,0] = x0
+    
+for k in range(T.time.num_samples):
+            
+    T_k = T.sample(k*t_s) # sampled operator
+    
+    # ------ apply operator regression solver
+    if k % (num_interp+1) == 0:
+    
+        # training data
+        x_i, y_i = generate_data(T_k, x[...,k], num_data, var=var)
+        
+        # apply OpReg solver
+        t_i = operator_regression(x_i, y_i, zeta, tol=tol, rho=rho)
+        
+        # apply solution
+        x[...,k+1] = g.proximal(t_i[0], step)
+    
+    # ------ apply interpolation
+    else:
+
+        y = interpolator(x[...,k], x_i, t_i, zeta, t0=T_k.operator(x[...,k]))
+        
+        x[...,k+1] = g.proximal(y, step)
+
+    print_progress(k+1, T.time.num_samples)
+
+# results
+errors[a] = [la.norm(x[...,k] - signal[:,[k]]) for k in range(T.time.num_samples)]
 
 
 #%% RESULTS
@@ -276,51 +283,27 @@ import matplotlib.pyplot as plt
 
 plt.rc("text", usetex=True)
 plt.rc("font", family="serif")
-plt.rc("text.latex", preamble=r"\usepackage{bm,fixmath,amssymb}")
 fontsize = 18
 
 markers = ['o', 's', 'v', '^', '*', 'D', 'H', '<', '>', 'p']
-
+markevery = 100
 
 # ------ tracking error over time
-time = np.arange(0, f.time.t_max, f.time.t_s)
+time = num_data*np.arange(1, f.time.num_samples+1)
 
 plt.figure()
 
-plt.semilogy(time, err_pg, label="Proximal gradient", marker=markers[0], markevery=50)
-plt.semilogy(time, err_f, label="FISTA", marker=markers[1], markevery=50)
-plt.semilogy(time, err_aa, label="Anderson", marker=markers[2], markevery=50)
-plt.semilogy(time, err_or, label="OpReg", marker=markers[3], markevery=50)
-plt.semilogy(time, err_cr, label="CvxReg", marker=markers[4], markevery=50)
-plt.semilogy(time, err_in, label="OpReg (interpolation)", marker=markers[5], markevery=50)
+for idx_a, a in enumerate(algs):
+    
+    plt.semilogy(time, errors[a], label=a, marker=markers[idx_a], markevery=markevery)
 
 
 plt.grid()
-plt.legend(fontsize=12)
+plt.legend(fontsize=14)
 
-plt.xlabel("Time [s]", fontsize=fontsize)
+plt.xlabel(r"Gradient calls (${} t_k$)".format(num_data), fontsize=fontsize)
 plt.ylabel("Tracking error", fontsize=fontsize)
 
-plt.show()
-
-
-# ------ cumulative tracking error per gradient calls
-time = num_iter*num_data*np.arange(1, f.time.num_samples+1)
-
-plt.figure()
-
-plt.semilogy(time, np.cumsum(err_pg)/time, label="Proximal gradient", marker=markers[0], markevery=50)
-plt.semilogy(time, np.cumsum(err_f)/time, label="FISTA", marker=markers[1], markevery=50)
-plt.semilogy(time, np.cumsum(err_aa)/time, label="Anderson", marker=markers[2], markevery=50)
-plt.semilogy(time, np.cumsum(err_or)/time, label="OpReg", marker=markers[3], markevery=50)
-plt.semilogy(time, np.cumsum(err_cr)/time, label="CvxReg", marker=markers[4], markevery=50)
-plt.semilogy(time, np.cumsum(err_in)/time, label="OpReg (interpolation)", marker=markers[5], markevery=50)
-
-
-plt.grid()
-plt.legend(fontsize=12)
-
-plt.xlabel("Gradient calls", fontsize=fontsize)
-plt.ylabel("Cumulative tracking error", fontsize=fontsize)
+plt.tight_layout()
 
 plt.show()
