@@ -26,12 +26,15 @@ def sample_training_points(x, num_data, method="normal", **kwargs):
     points for a regression problem. The choices are
     
     * normal: the data are chosen as :math:`x + d_i`, where
-      :math:`d_i` are random vectors with normal distribution;
+      :math:`d_i` are random vectors with normal distribution (by default the 
+      variance is 0.01);
     * fireworks: the data are chosen as :math:`x + d_i`, where we have
-      :math:`d_i = a e_j`, with :math:`a` a r.v. with normal distribution and
-      :math:`e_j` a randomly selected vector of the standard basis;
+      :math:`d_i = a e_j`, with :math:`a` a r.v. with normal distribution (with
+      default variance 0.01) and :math:`e_j` a randomly selected vector of the 
+      standard basis;
     * uniform: the data are chosen as :math:`x + d_i`, where
-      :math:`d_i` are random vectors with uniform distribution.
+      :math:`d_i` are random vectors with uniform distribution in [-a, a] (by 
+      default a = 1).
 
     Parameters
     ----------
@@ -54,18 +57,28 @@ def sample_training_points(x, num_data, method="normal", **kwargs):
     """
     
     if method == "fireworks" or method == "fw" or method == "f":
+        var = kwargs.get("var", 1e-2)
+        
         # pick directions and magnitudes
         d = ran.choice(range(x.size), size=num_data-1, replace=False)
-        m = math.sqrt(kwargs["var"])*ran.standard_normal(num_data-1)
+        m = math.sqrt(var)*ran.standard_normal(num_data-1)
         
         # create the points
         return [x] + [x + m[i]*_standard_basis(d[i], x.size) for i in range(num_data-1)]
     
     elif method == "uniform" or method == "u":
-        return [x] + [x + 2*kwargs["a"]*ran.random(x.shape)-kwargs["a"] for _ in range(num_data-1)]
+        a = kwargs.get("a", 1)
+
+        return [x] + [x + 2*a*ran.random(x.shape)-a for _ in range(num_data-1)]
         
-    else: # normal
-        return [x] + [x + math.sqrt(kwargs["var"])*ran.standard_normal(x.shape) for _ in range(num_data-1)]
+    elif method == "normal" or method == "n":
+        var = kwargs.get("var", 1e-2)
+        
+        return [x] + [x + math.sqrt(var)*ran.standard_normal(x.shape) for _ in range(num_data-1)]
+    
+    else:
+        
+        raise ValueError("Invalid `method` argument {}.".format(method))
 
 def generate_data(T, x, num_data, method="normal", **kwargs):
     """
