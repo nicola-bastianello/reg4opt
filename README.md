@@ -22,7 +22,13 @@ pip install reg4opt
 ## Cite
 
 ```
-TODO
+@article{bastianello_opregboost_2021,
+	title = {{OpReg}-{Boost}: {Learning} to {Accelerate} {Online} {Algorithms} with {Operator} {Regression}},
+	url = {http://arxiv.org/abs/2105.13271},
+	journal = {arXiv:2105.13271 [cs, math]},
+	author = {Bastianello, Nicola and Simonetto, Andrea and Dall'Anese, Emiliano},
+	year = {2021}
+}
 
 ```
 
